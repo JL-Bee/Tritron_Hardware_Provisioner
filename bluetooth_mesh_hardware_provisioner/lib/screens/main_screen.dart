@@ -79,6 +79,18 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                     'Please connect your device via USB',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ProvisionerConnectionScreen(),
+                        ),
+                      );
+                    },
+                    child: const Text('Connection Settings'),
+                  ),
                   if (state.connectionStatus == provisioner.ConnectionStatus.error) ...[
                     const SizedBox(height: 16),
                     FilledButton(
@@ -215,6 +227,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
           body: Column(
             children: [
               _buildStatusBar(state),
+              _buildCurrentAction(state),
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
@@ -285,7 +298,6 @@ class _BlocMainScreenState extends State<BlocMainScreen>
       ),
     );
   }
-
 
   Widget _buildDevicesTab(provisioner.ProvisionerState state) {
     return RefreshIndicator(
