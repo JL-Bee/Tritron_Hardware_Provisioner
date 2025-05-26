@@ -263,11 +263,9 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     on<SelectDevice>(_onSelectDevice);
     on<ClearError>(_onClearError);
     on<AddConsoleEntry>(_onAddConsoleEntry);
-<<<<<<< HEAD
-    on<SendConsoleCommand>(_onSendConsoleCommand);
-=======
+
     on<NodeDiscovered>(_onNodeDiscovered);
->>>>>>> origin/main
+
   }
 
   Future<void> _onConnectToPort(ConnectToPort event, Emitter<ProvisionerState> emit) async {
