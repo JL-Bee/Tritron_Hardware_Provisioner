@@ -415,7 +415,8 @@ class _BlocMainScreenState extends State<BlocMainScreen>
   }
 
   Widget _buildDetailsTab(provisioner.ProvisionerState state) {
-    if (state.selectedDevice == null) {
+    final device = state.selectedDevice;
+    if (device == null) {
       return const Center(
         child: Text('Select a device to view details'),
       );
@@ -437,11 +438,11 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const Divider(),
-                  _buildInfoRow('Address', state.selectedDevice!.addressHex),
-                  _buildInfoRow('Group Address', state.selectedDevice!.groupAddressHex),
-                  _buildInfoRow('UUID', state.selectedDevice!.uuid),
-                  if (state.selectedDevice!.label != null)
-                    _buildInfoRow('Label', state.selectedDevice!.label!),
+                  _buildInfoRow('Address', device.addressHex),
+                  _buildInfoRow('Group Address', device.groupAddressHex),
+                  _buildInfoRow('UUID', device.uuid),
+                  if (device.label != null)
+                    _buildInfoRow('Label', device.label!),
                 ],
               ),
             ),
@@ -462,7 +463,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                       const Spacer(),
                       IconButton(
                         icon: const Icon(Icons.add),
-                        onPressed: () => _showAddSubscriptionDialog(context, state.selectedDevice!),
+                        onPressed: () => _showAddSubscriptionDialog(context, device),
                       ),
                     ],
                   ),
@@ -476,12 +477,12 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                         '0x${addr.toRadixString(16).padLeft(4, '0').toUpperCase()}',
                         style: const TextStyle(fontFamily: 'monospace'),
                       ),
-                      trailing: addr == state.selectedDevice!.groupAddress
+                      trailing: addr == device.groupAddress
                           ? const Chip(label: Text('Own Group'))
                           : IconButton(
                               icon: const Icon(Icons.delete_outline),
                               onPressed: () => context.read<provisioner.ProvisionerBloc>().add(
-                                provisioner.RemoveSubscription(state.selectedDevice!.address, addr),
+                                provisioner.RemoveSubscription(device.address, addr),
                               ),
                               color: Colors.red,
                             ),

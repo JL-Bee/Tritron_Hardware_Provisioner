@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:async';
 import '../models/serial_port_info.dart';
 import '../services/serial_port_service.dart';
-import '../services/rtm_console_service.dart';
+import '../services/rtm_console_service.dart' as console_service;
 import '../protocols/rtm_console_protocol.dart';
 
 // Events
@@ -187,7 +187,7 @@ class ActionResult {
 // BLoC Implementation
 class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
   final SerialPortService _serialService = SerialPortService();
-  RTMConsoleService? _consoleService;
+  console_service.RTMConsoleService? _consoleService;
   StreamSubscription? _dataSubscription;
   StreamSubscription? _nodeFoundSubscription;
   Timer? _provisioningTimer;
@@ -212,7 +212,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     try {
       await _serialService.connect(event.port.portName);
 
-      _consoleService = RTMConsoleService(
+      _consoleService = console_service.RTMConsoleService(
         sendCommand: (cmd) async {
           await _serialService.sendCommand(cmd);
           add(AddConsoleEntry(cmd.trim(), ConsoleEntryType.command));
