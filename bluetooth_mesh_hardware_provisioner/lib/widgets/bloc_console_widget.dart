@@ -34,7 +34,9 @@ class _BlocConsoleWidgetState extends State<BlocConsoleWidget> {
 
     // TODO: Actually send command through console service
     // For now, this is just for UI demonstration
-    context.read<ProvisionerBloc>().add(AddConsoleEntry(command, ConsoleEntryType.command));
+    context
+        .read<ProvisionerBloc>()
+        .add(AddConsoleEntry(command, ConsoleEntryType.command));
   }
 
   void _copyToClipboard(List<ConsoleEntry> entries) {
@@ -209,7 +211,7 @@ class _ConsoleEntryWidget extends StatelessWidget {
               style: TextStyle(
                 fontFamily: 'monospace',
                 fontSize: 12,
-                color: _getPrefixColor(entry.type),
+                color: _getPrefixColor(entry),
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -246,8 +248,12 @@ class _ConsoleEntryWidget extends StatelessWidget {
     }
   }
 
-  Color _getPrefixColor(ConsoleEntryType type) {
-    switch (type) {
+  Color _getPrefixColor(ConsoleEntry entry) {
+    if (entry.type == ConsoleEntryType.response && entry.timedOut) {
+      return Colors.red.shade300;
+    }
+
+    switch (entry.type) {
       case ConsoleEntryType.command:
         return Colors.blue.shade300;
       case ConsoleEntryType.response:
