@@ -112,19 +112,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
           appBar: AppBar(
             title: const Text('Bluetooth Mesh Provisioner'),
             backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.usb),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const ProvisionerConnectionScreen(),
-                    ),
-                  );
-                },
-              ),
-            ],
+            actions: const [],
             bottom: TabBar(
               controller: _tabController,
               tabs: [
@@ -225,14 +213,42 @@ class _BlocMainScreenState extends State<BlocMainScreen>
   }
 
   Widget _buildStatusBar(provisioner.ProvisionerState state) {
+    Color indicatorColor;
+    switch (state.connectionStatus) {
+      case provisioner.ConnectionStatus.connecting:
+        indicatorColor = Colors.orange;
+        break;
+      case provisioner.ConnectionStatus.connected:
+        indicatorColor = Colors.green;
+        break;
+      case provisioner.ConnectionStatus.error:
+        indicatorColor = Colors.red;
+        break;
+      default:
+        indicatorColor = Colors.grey;
+    }
+
     return Container(
       padding: const EdgeInsets.all(8),
       color: Theme.of(context).colorScheme.secondaryContainer,
       child: Row(
         children: [
-          const Icon(Icons.usb, size: 20),
+          IconButton(
+            icon: const Icon(Icons.usb, size: 20),
+            tooltip: 'Connection Settings',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ProvisionerConnectionScreen(),
+                ),
+              );
+            },
+          ),
           const SizedBox(width: 8),
-          SelectableText(state.connectedPort?.displayName ?? 'Connected'),
+          Text('Provisioner (${state.connectedPort?.portName ?? 'N/A'})'),
+          const SizedBox(width: 8),
+          Icon(Icons.circle, color: indicatorColor, size: 12),
           const Spacer(),
           Chip(
             label: Text('${state.foundUuids.length} new'),
