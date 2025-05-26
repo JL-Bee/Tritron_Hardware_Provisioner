@@ -10,6 +10,7 @@ import '../widgets/bloc_console_widget.dart';
 import '../models/serial_port_info.dart';
 import '../services/serial_port_service.dart' as serial;
 import 'action_history_screen.dart';
+import 'provisioner_connection_screen.dart';
 
 class BlocMainScreen extends StatefulWidget {
   const BlocMainScreen({super.key});
@@ -111,6 +112,19 @@ class _BlocMainScreenState extends State<BlocMainScreen>
           appBar: AppBar(
             title: const Text('Bluetooth Mesh Provisioner'),
             backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.usb),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ProvisionerConnectionScreen(),
+                    ),
+                  );
+                },
+              ),
+            ],
             bottom: TabBar(
               controller: _tabController,
               tabs: [
