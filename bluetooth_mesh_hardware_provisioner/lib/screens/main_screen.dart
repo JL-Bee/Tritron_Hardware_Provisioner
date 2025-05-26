@@ -193,6 +193,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
           body: Column(
             children: [
               _buildStatusBar(state),
+              _buildCurrentAction(state),
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
@@ -259,6 +260,35 @@ class _BlocMainScreenState extends State<BlocMainScreen>
             label: Text('${state.provisionedDevices.length} provisioned'),
             avatar: const Icon(Icons.check_circle, size: 16),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCurrentAction(provisioner.ProvisionerState state) {
+    final action = state.currentAction;
+    if (action == null) return const SizedBox.shrink();
+
+    String _formatTime(DateTime ts) =>
+        '${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}:${ts.second.toString().padLeft(2, '0')}';
+
+    return Container(
+      padding: const EdgeInsets.all(8),
+      color: Theme.of(context).colorScheme.primaryContainer,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Current Action: ${action.action}',
+              style: const TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          if (action.log.isEmpty)
+            const Text('Waiting for data...',
+                style: TextStyle(fontStyle: FontStyle.italic))
+          else
+            ...action.log.map(
+              (e) => Text('[${_formatTime(e.timestamp)}] ${e.text}',
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+            ),
         ],
       ),
     );
