@@ -146,7 +146,13 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (state.currentError != null)
+                          if (state.currentAction != null)
+                            const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          else if (state.currentError != null)
                             Icon(Icons.error, color: Colors.red, size: 16)
                           else if (hasRecentActivity && latestAction != null)
                             Icon(
@@ -157,7 +163,23 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                           else
                             const Icon(Icons.history, size: 16),
                           const SizedBox(width: 4),
-                          if (state.currentError != null ||
+                          if (state.currentAction != null)
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Action History',
+                                  style: TextStyle(fontSize: 10),
+                                ),
+                                Text(
+                                  state.currentAction!.action.length > 20
+                                      ? '${state.currentAction!.action.substring(0, 20)}...'
+                                      : state.currentAction!.action,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ],
+                            )
+                          else if (state.currentError != null ||
                               (hasRecentActivity && latestAction != null))
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -272,35 +294,6 @@ class _BlocMainScreenState extends State<BlocMainScreen>
             label: Text('${state.provisionedDevices.length} provisioned'),
             avatar: const Icon(Icons.check_circle, size: 16),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCurrentAction(provisioner.ProvisionerState state) {
-    final action = state.currentAction;
-    if (action == null) return const SizedBox.shrink();
-
-    String _formatTime(DateTime ts) =>
-        '${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}:${ts.second.toString().padLeft(2, '0')}';
-
-    return Container(
-      padding: const EdgeInsets.all(8),
-      color: Theme.of(context).colorScheme.primaryContainer,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Current Action: ${action.action}',
-              style: const TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          if (action.log.isEmpty)
-            const Text('Waiting for data...',
-                style: TextStyle(fontStyle: FontStyle.italic))
-          else
-            ...action.log.map(
-              (e) => Text('[${_formatTime(e.timestamp)}] ${e.text}',
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
-            ),
         ],
       ),
     );
