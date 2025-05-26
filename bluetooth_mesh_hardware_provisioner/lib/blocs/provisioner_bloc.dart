@@ -73,6 +73,7 @@ class ProvisionerState {
   final List<ConsoleEntry> consoleEntries;
   final AppError? currentError;
   final List<ActionResult> actionHistory;
+  final ActionExecution? currentAction;
 
   ProvisionerState({
     this.connectionStatus = ConnectionStatus.disconnected,
@@ -88,6 +89,7 @@ class ProvisionerState {
     List<ConsoleEntry>? consoleEntries,
     this.currentError,
     List<ActionResult>? actionHistory,
+    this.currentAction,
   })  : foundUuids = foundUuids ?? {},
         provisionedDevices = provisionedDevices ?? [],
         selectedDeviceSubscriptions = selectedDeviceSubscriptions ?? [],
@@ -109,6 +111,7 @@ class ProvisionerState {
     AppError? currentError,
     bool clearError = false,
     List<ActionResult>? actionHistory,
+    ActionExecution? currentAction,
   }) {
     return ProvisionerState(
       connectionStatus: connectionStatus ?? this.connectionStatus,
@@ -124,6 +127,7 @@ class ProvisionerState {
       consoleEntries: consoleEntries ?? this.consoleEntries,
       currentError: clearError ? null : (currentError ?? this.currentError),
       actionHistory: actionHistory ?? this.actionHistory,
+      currentAction: currentAction ?? this.currentAction,
     );
   }
 }
@@ -178,14 +182,52 @@ class ActionResult {
   final String action;
   final bool success;
   final String? message;
+  final List<ConsoleEntry> log;
   final DateTime timestamp;
 
   ActionResult({
     required this.action,
     required this.success,
     this.message,
+    List<ConsoleEntry>? log,
     DateTime? timestamp,
-  }) : timestamp = timestamp ?? DateTime.now();
+  })  : log = log ?? [],
+        timestamp = timestamp ?? DateTime.now();
+
+  ActionResult copyWith({
+    bool? success,
+    String? message,
+    List<ConsoleEntry>? log,
+  }) {
+    return ActionResult(
+      action: action,
+      success: success ?? this.success,
+      message: message ?? this.message,
+      log: log ?? this.log,
+      timestamp: this.timestamp,
+    );
+  }
+}
+
+class ActionExecution {
+  final String action;
+  final List<ConsoleEntry> log;
+  final DateTime timestamp;
+
+  ActionExecution({
+    required this.action,
+    List<ConsoleEntry>? log,
+    DateTime? timestamp,
+  })  : log = log ?? [],
+        timestamp = timestamp ?? DateTime.now();
+
+  ActionExecution copyWith({List<ConsoleEntry>? log}) {
+    return ActionExecution(
+      action: action,
+      log: log ?? this.log,
+      timestamp: this.timestamp,
+    );
+  }
 }
 
 // BLoC Implementation
@@ -272,7 +314,10 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
   Future<void> _onScanDevices(ScanDevices event, Emitter<ProvisionerState> emit) async {
     if (state.connectionStatus != ConnectionStatus.connected || _consoleService == null) return;
 
-    emit(state.copyWith(isScanning: true));
+    emit(state.copyWith(
+      isScanning: true,
+      currentAction: const ActionExecution(action: 'Device scan'),
+    ));
 
     try {
       final uuids = await _consoleService!.scanDevices();
@@ -313,6 +358,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
       isProvisioning: true,
       provisioningStatus: 'Starting provisioning...',
       provisioningUuid: event.uuid,
+      currentAction: ActionExecution(action: 'Provision device'),
     ));
 
     try {
@@ -373,6 +419,12 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
   Future<void> _onUnprovisionDevice(UnprovisionDevice event, Emitter<ProvisionerState> emit) async {
     if (_consoleService == null) return;
 
+    emit(state.copyWith(
+      currentAction: ActionExecution(
+        action: 'Unprovision device ${event.device.addressHex}',
+      ),
+    ));
+
     try {
       final success = await _consoleService!.resetDevice(event.device.address);
       if (success) {
@@ -397,6 +449,12 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
 
   Future<void> _onAddSubscription(AddSubscription event, Emitter<ProvisionerState> emit) async {
     if (_consoleService == null) return;
+
+    emit(state.copyWith(
+      currentAction: ActionExecution(
+        action: 'Add subscription 0x${event.groupAddress.toRadixString(16)}',
+      ),
+    ));
 
     try {
       final success = await _consoleService!.addSubscribe(event.nodeAddress, event.groupAddress);
@@ -434,6 +492,12 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
 
   Future<void> _onRemoveSubscription(RemoveSubscription event, Emitter<ProvisionerState> emit) async {
     if (_consoleService == null) return;
+
+    emit(state.copyWith(
+      currentAction: ActionExecution(
+        action: 'Remove subscription 0x${event.groupAddress.toRadixString(16)}',
+      ),
+    ));
 
     try {
       final success = await _consoleService!.removeSubscribe(event.nodeAddress, event.groupAddress);
@@ -503,12 +567,23 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
       timedOut: event.timedOut,
     ));
 
+    ActionExecution? current = state.currentAction;
+    if (current != null) {
+      final log = List<ConsoleEntry>.from(current.log)
+        ..add(ConsoleEntry(
+          text: event.text,
+          type: event.type,
+          timedOut: event.timedOut,
+        ));
+      current = current.copyWith(log: log);
+    }
+
     // Keep only last 1000 entries
     if (entries.length > 1000) {
       entries.removeRange(0, entries.length - 1000);
     }
 
-    emit(state.copyWith(consoleEntries: entries));
+    emit(state.copyWith(consoleEntries: entries, currentAction: current));
   }
 
   void _handleIncomingData(String data) {
@@ -544,10 +619,13 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
 
   void _addActionResult(String action, bool success, String? message, Emitter<ProvisionerState> emit) {
     final history = List<ActionResult>.from(state.actionHistory);
+    final current = state.currentAction;
     history.add(ActionResult(
       action: action,
       success: success,
       message: message,
+      log: current?.log ?? [],
+      timestamp: current?.timestamp,
     ));
 
     // Keep only last 100 actions
@@ -555,7 +633,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
       history.removeRange(0, history.length - 100);
     }
 
-    emit(state.copyWith(actionHistory: history));
+    emit(state.copyWith(actionHistory: history, currentAction: null));
   }
 
   @override

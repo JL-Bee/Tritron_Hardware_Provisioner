@@ -134,7 +134,13 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (state.currentError != null)
+                          if (state.currentAction != null)
+                            const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          else if (state.currentError != null)
                             Icon(Icons.error, color: Colors.red, size: 16)
                           else if (hasRecentActivity && latestAction != null)
                             Icon(
@@ -145,7 +151,23 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                           else
                             const Icon(Icons.history, size: 16),
                           const SizedBox(width: 4),
-                          if (state.currentError != null ||
+                          if (state.currentAction != null)
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Action History',
+                                  style: TextStyle(fontSize: 10),
+                                ),
+                                Text(
+                                  state.currentAction!.action.length > 20
+                                      ? '${state.currentAction!.action.substring(0, 20)}...'
+                                      : state.currentAction!.action,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ],
+                            )
+                          else if (state.currentError != null ||
                               (hasRecentActivity && latestAction != null))
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -263,6 +285,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
       ),
     );
   }
+
 
   Widget _buildDevicesTab(provisioner.ProvisionerState state) {
     return RefreshIndicator(

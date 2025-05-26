@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../blocs/provisioner_bloc.dart';
+import '../blocs/provisioner_bloc.dart' as provisioner;
 
 class ActionHistoryScreen extends StatelessWidget {
   const ActionHistoryScreen({super.key});
@@ -15,7 +15,7 @@ class ActionHistoryScreen extends StatelessWidget {
         title: const Text('Action History'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
-      body: BlocBuilder<ProvisionerBloc, ProvisionerState>(
+      body: BlocBuilder<provisioner.ProvisionerBloc, provisioner.ProvisionerState>(
         builder: (context, state) {
           if (state.actionHistory.isEmpty) {
             return const Center(
@@ -92,6 +92,34 @@ Message: ${action.message ?? 'N/A'}
                               ),
                             ],
                           ),
+                          if (action.log.isNotEmpty) ...[
+                            const SizedBox(height: 16),
+                            Text(
+                              'Serial Log',
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
+                            const SizedBox(height: 8),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.surfaceVariant,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: action.log
+                                    .map(
+                                      (e) => Text(
+                                        '[${_formatTime(e.timestamp)}] ${_entryPrefix(e)} ${e.text}',
+                                        style: const TextStyle(
+                                            fontFamily: 'monospace', fontSize: 12),
+                                      ),
+                                    )
+                                    .toList(),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -143,6 +171,22 @@ Message: ${action.message ?? 'N/A'}
       return '${timestamp.hour.toString().padLeft(2, '0')}:'
              '${timestamp.minute.toString().padLeft(2, '0')} '
              '${timestamp.day}/${timestamp.month}';
+    }
+  }
+
+  String _formatTime(DateTime ts) =>
+      '${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}:${ts.second.toString().padLeft(2, '0')}';
+
+  String _entryPrefix(provisioner.ConsoleEntry entry) {
+    switch (entry.type) {
+      case provisioner.ConsoleEntryType.command:
+        return 'TX';
+      case provisioner.ConsoleEntryType.response:
+        return 'RX';
+      case provisioner.ConsoleEntryType.info:
+        return 'INFO';
+      case provisioner.ConsoleEntryType.error:
+        return 'ERROR';
     }
   }
 }
