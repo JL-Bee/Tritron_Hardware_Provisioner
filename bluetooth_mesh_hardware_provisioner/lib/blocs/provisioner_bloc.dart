@@ -271,13 +271,13 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
         isScanning: false,
       ));
 
-      _addActionResult('Device scan', true, 'Found ${uuids.length} devices');
+      _addActionResult('Device scan', true, 'Found ${uuids.length} devices', emit);
     } catch (e) {
       emit(state.copyWith(
         isScanning: false,
         currentError: AppError(message: 'Scan failed: $e'),
       ));
-      _addActionResult('Device scan', false, e.toString());
+      _addActionResult('Device scan', false, e.toString(), emit);
     }
   }
 
@@ -327,13 +327,13 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
               ));
 
               add(RefreshDeviceList());
-              _addActionResult('Provision device', true, 'Device provisioned successfully');
+              _addActionResult('Provision device', true, 'Device provisioned successfully', emit);
             } else {
               emit(state.copyWith(
                 isProvisioning: false,
                 currentError: AppError(message: 'Provisioning failed with error: $result'),
               ));
-              _addActionResult('Provision device', false, 'Error code: $result');
+              _addActionResult('Provision device', false, 'Error code: $result', emit);
             }
           }
         });
@@ -342,14 +342,14 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
           isProvisioning: false,
           currentError: AppError(message: 'Failed to start provisioning'),
         ));
-        _addActionResult('Provision device', false, 'Failed to start');
+        _addActionResult('Provision device', false, 'Failed to start', emit);
       }
     } catch (e) {
       emit(state.copyWith(
         isProvisioning: false,
         currentError: AppError(message: 'Provisioning error: $e'),
       ));
-      _addActionResult('Provision device', false, e.toString());
+      _addActionResult('Provision device', false, e.toString(), emit);
     }
   }
 
@@ -363,18 +363,18 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
         if (state.selectedDevice?.address == event.device.address) {
           emit(state.copyWith(selectedDevice: null));
         }
-        _addActionResult('Unprovision device ${event.device.addressHex}', true);
+        _addActionResult('Unprovision device ${event.device.addressHex}', true, null, emit);
       } else {
         emit(state.copyWith(
           currentError: AppError(message: 'Failed to reset device'),
         ));
-        _addActionResult('Unprovision device ${event.device.addressHex}', false);
+        _addActionResult('Unprovision device ${event.device.addressHex}', false, null, emit);
       }
     } catch (e) {
       emit(state.copyWith(
         currentError: AppError(message: 'Reset error: $e'),
       ));
-      _addActionResult('Unprovision device ${event.device.addressHex}', false, e.toString());
+      _addActionResult('Unprovision device ${event.device.addressHex}', false, e.toString(), emit);
     }
   }
 
@@ -388,6 +388,8 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
         _addActionResult(
           'Add subscription 0x${event.groupAddress.toRadixString(16)}',
           true,
+          null,
+          emit,
         );
       } else {
         emit(state.copyWith(
@@ -396,6 +398,8 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
         _addActionResult(
           'Add subscription 0x${event.groupAddress.toRadixString(16)}',
           false,
+          null,
+          emit,
         );
       }
     } catch (e) {
@@ -406,6 +410,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
         'Add subscription 0x${event.groupAddress.toRadixString(16)}',
         false,
         e.toString(),
+        emit,
       );
     }
   }
@@ -420,6 +425,8 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
         _addActionResult(
           'Remove subscription 0x${event.groupAddress.toRadixString(16)}',
           true,
+          null,
+          emit,
         );
       } else {
         emit(state.copyWith(
@@ -428,6 +435,8 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
         _addActionResult(
           'Remove subscription 0x${event.groupAddress.toRadixString(16)}',
           false,
+          null,
+          emit,
         );
       }
     } catch (e) {
@@ -438,6 +447,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
         'Remove subscription 0x${event.groupAddress.toRadixString(16)}',
         false,
         e.toString(),
+        emit,
       );
     }
   }
@@ -446,7 +456,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     emit(state.copyWith(selectedDevice: event.device));
 
     if (event.device != null && _consoleService != null) {
-      await _loadDeviceSubscriptions(event.device.address, emit);
+      await _loadDeviceSubscriptions(event.device!.address, emit);
     }
   }
 
@@ -480,7 +490,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     emit(state.copyWith(consoleEntries: entries));
   }
 
-  void _addActionResult(String action, bool success, [String? message]) {
+  void _addActionResult(String action, bool success, String? message, Emitter<ProvisionerState> emit) {
     final history = List<ActionResult>.from(state.actionHistory);
     history.add(ActionResult(
       action: action,

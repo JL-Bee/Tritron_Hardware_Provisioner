@@ -3,11 +3,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../blocs/provisioner_bloc.dart';
+import '../blocs/provisioner_bloc.dart' as provisioner;
+import '../protocols/rtm_console_protocol.dart';
 import '../widgets/error_notification.dart';
 import '../widgets/bloc_console_widget.dart';
 import '../models/serial_port_info.dart';
-import '../services/serial_port_service.dart';
+import '../services/serial_port_service.dart' as serial;
 import 'action_history_screen.dart';
 
 class BlocMainScreen extends StatefulWidget {
@@ -35,7 +36,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
   }
 
   Future<void> _autoConnect() async {
-    final service = SerialPortService();
+    final service = serial.SerialPortService();
     final ports = await service.scanForPorts();
 
     if (ports.isNotEmpty) {
@@ -45,29 +46,29 @@ class _BlocMainScreenState extends State<BlocMainScreen>
       );
 
       if (!mounted) return;
-      context.read<ProvisionerBloc>().add(ConnectToPort(nrf52Port));
+      context.read<provisioner.ProvisionerBloc>().add(provisioner.ConnectToPort(nrf52Port));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<ProvisionerBloc, ProvisionerState>(
+    return BlocBuilder<provisioner.ProvisionerBloc, provisioner.ProvisionerState>(
       builder: (context, state) {
-        if (state.connectionStatus != ConnectionStatus.connected) {
+        if (state.connectionStatus != provisioner.ConnectionStatus.connected) {
           return Scaffold(
             body: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  if (state.connectionStatus == ConnectionStatus.connecting)
+                  if (state.connectionStatus == provisioner.ConnectionStatus.connecting)
                     const CircularProgressIndicator(),
-                  if (state.connectionStatus == ConnectionStatus.error)
+                  if (state.connectionStatus == provisioner.ConnectionStatus.error)
                     const Icon(Icons.error, size: 64, color: Colors.red),
                   const SizedBox(height: 16),
                   Text(
-                    state.connectionStatus == ConnectionStatus.connecting
+                    state.connectionStatus == provisioner.ConnectionStatus.connecting
                         ? 'Connecting to NRF52 DK...'
-                        : state.connectionStatus == ConnectionStatus.error
+                        : state.connectionStatus == provisioner.ConnectionStatus.error
                             ? 'Connection failed'
                             : 'Not connected',
                     style: Theme.of(context).textTheme.titleLarge,
@@ -77,7 +78,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                     'Please connect your device via USB',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
-                  if (state.connectionStatus == ConnectionStatus.error) ...[
+                  if (state.connectionStatus == provisioner.ConnectionStatus.error) ...[
                     const SizedBox(height: 16),
                     FilledButton(
                       onPressed: _autoConnect,
@@ -143,7 +144,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
     );
   }
 
-  Widget _buildStatusBar(ProvisionerState state) {
+  Widget _buildStatusBar(provisioner.ProvisionerState state) {
     return Container(
       padding: const EdgeInsets.all(8),
       color: Theme.of(context).colorScheme.secondaryContainer,
@@ -151,7 +152,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
         children: [
           const Icon(Icons.usb, size: 20),
           const SizedBox(width: 8),
-          Text(state.connectedPort?.displayName ?? 'Connected'),
+          SelectableText(state.connectedPort?.displayName ?? 'Connected'),
           const Spacer(),
           if (state.isProvisioning) ...[
             const SizedBox(
@@ -161,9 +162,9 @@ class _BlocMainScreenState extends State<BlocMainScreen>
             ),
             const SizedBox(width: 8),
             Flexible(
-              child: Text(
+              child: SelectableText(
                 state.provisioningStatus,
-                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(overflow: TextOverflow.ellipsis),
               ),
             ),
           ] else ...[
@@ -182,12 +183,12 @@ class _BlocMainScreenState extends State<BlocMainScreen>
     );
   }
 
-  Widget _buildDevicesTab(ProvisionerState state) {
+  Widget _buildDevicesTab(provisioner.ProvisionerState state) {
     return RefreshIndicator(
       onRefresh: () async {
-        context.read<ProvisionerBloc>()
-          ..add(ScanDevices())
-          ..add(RefreshDeviceList());
+        context.read<provisioner.ProvisionerBloc>()
+          ..add(provisioner.ScanDevices())
+          ..add(provisioner.RefreshDeviceList());
       },
       child: ListView(
         children: [
@@ -212,7 +213,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                         : const Icon(Icons.refresh),
                     onPressed: state.isScanning
                         ? null
-                        : () => context.read<ProvisionerBloc>().add(ScanDevices()),
+                        : () => context.read<provisioner.ProvisionerBloc>().add(provisioner.ScanDevices()),
                   ),
                 ],
               ),
@@ -223,12 +224,35 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                 leading: const CircleAvatar(
                   child: Icon(Icons.bluetooth),
                 ),
-                title: const Text('New Device'),
-                subtitle: Text('UUID: $uuid'),
+                title: const SelectableText('New Device'),
+                subtitle: Row(
+                  children: [
+                    const Text('UUID: '),
+                    Expanded(
+                      child: SelectableText(
+                        uuid,
+                        style: const TextStyle(fontFamily: 'monospace'),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.copy, size: 16),
+                      tooltip: 'Copy UUID',
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: uuid));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('UUID copied to clipboard'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
                 trailing: FilledButton(
                   onPressed: state.isProvisioning
                       ? null
-                      : () => context.read<ProvisionerBloc>().add(ProvisionDevice(uuid)),
+                      : () => context.read<provisioner.ProvisionerBloc>().add(provisioner.ProvisionDevice(uuid)),
                   child: const Text('Provision'),
                 ),
               ),
@@ -266,14 +290,36 @@ class _BlocMainScreenState extends State<BlocMainScreen>
               child: ListTile(
                 leading: CircleAvatar(
                   backgroundColor: Theme.of(context).colorScheme.primary,
-                  child: Text(
+                  child: SelectableText(
                     device.address.toRadixString(16).toUpperCase(),
                     style: const TextStyle(color: Colors.white, fontSize: 12),
                   ),
                 ),
-                title: Text('Device ${device.addressHex}'),
-                subtitle: Text(
-                  'Group: ${device.groupAddressHex}\nUUID: ${device.uuid}',
+                title: SelectableText('Device ${device.addressHex}'),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Text('Group: '),
+                        SelectableText(
+                          device.groupAddressHex,
+                          style: const TextStyle(fontFamily: 'monospace'),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        const Text('UUID: '),
+                        Expanded(
+                          child: SelectableText(
+                            device.uuid,
+                            style: const TextStyle(fontFamily: 'monospace'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
                 isThreeLine: true,
                 trailing: Row(
@@ -282,7 +328,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                     IconButton(
                       icon: const Icon(Icons.info_outline),
                       onPressed: () {
-                        context.read<ProvisionerBloc>().add(SelectDevice(device));
+                        context.read<provisioner.ProvisionerBloc>().add(provisioner.SelectDevice(device));
                         _tabController.animateTo(1);
                       },
                     ),
@@ -294,7 +340,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                   ],
                 ),
                 onTap: () {
-                  context.read<ProvisionerBloc>().add(SelectDevice(device));
+                  context.read<provisioner.ProvisionerBloc>().add(provisioner.SelectDevice(device));
                   _tabController.animateTo(1);
                 },
               ),
@@ -304,7 +350,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
     );
   }
 
-  Widget _buildDetailsTab(ProvisionerState state) {
+  Widget _buildDetailsTab(provisioner.ProvisionerState state) {
     if (state.selectedDevice == null) {
       return const Center(
         child: Text('Select a device to view details'),
@@ -362,13 +408,16 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                   else
                     ...state.selectedDeviceSubscriptions.map((addr) => ListTile(
                       leading: const Icon(Icons.group),
-                      title: Text('0x${addr.toRadixString(16).padLeft(4, '0').toUpperCase()}'),
+                      title: SelectableText(
+                        '0x${addr.toRadixString(16).padLeft(4, '0').toUpperCase()}',
+                        style: const TextStyle(fontFamily: 'monospace'),
+                      ),
                       trailing: addr == state.selectedDevice!.groupAddress
                           ? const Chip(label: Text('Own Group'))
                           : IconButton(
                               icon: const Icon(Icons.delete_outline),
-                              onPressed: () => context.read<ProvisionerBloc>().add(
-                                RemoveSubscription(state.selectedDevice!.address, addr),
+                              onPressed: () => context.read<provisioner.ProvisionerBloc>().add(
+                                provisioner.RemoveSubscription(state.selectedDevice!.address, addr),
                               ),
                               color: Colors.red,
                             ),
@@ -396,9 +445,28 @@ class _BlocMainScreenState extends State<BlocMainScreen>
             ),
           ),
           Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontFamily: 'monospace'),
+            child: Row(
+              children: [
+                Expanded(
+                  child: SelectableText(
+                    value,
+                    style: const TextStyle(fontFamily: 'monospace'),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.copy, size: 16),
+                  tooltip: 'Copy $label',
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: value));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('$label copied to clipboard'),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
           ),
         ],
@@ -427,7 +495,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
     );
 
     if (confirm == true && mounted) {
-      context.read<ProvisionerBloc>().add(UnprovisionDevice(device));
+      context.read<provisioner.ProvisionerBloc>().add(provisioner.UnprovisionDevice(device));
     }
   }
 
@@ -478,7 +546,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
     );
 
     if (groupAddr != null && mounted) {
-      context.read<ProvisionerBloc>().add(AddSubscription(device.address, groupAddr));
+      context.read<provisioner.ProvisionerBloc>().add(provisioner.AddSubscription(device.address, groupAddr));
     }
   }
 }
