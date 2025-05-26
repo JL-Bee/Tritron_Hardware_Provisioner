@@ -143,16 +143,30 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                           else
                             const Icon(Icons.history, size: 16),
                           const SizedBox(width: 4),
-                          Text(
-                            state.currentError != null
-                                ? 'Error'
-                                : hasRecentActivity && latestAction != null
-                                    ? latestAction.action.length > 20
-                                        ? '${latestAction.action.substring(0, 20)}...'
-                                        : latestAction.action
-                                    : 'Idle',
-                            style: const TextStyle(fontSize: 12),
-                          ),
+                          if (state.currentError != null ||
+                              (hasRecentActivity && latestAction != null))
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Action History',
+                                  style: TextStyle(fontSize: 10),
+                                ),
+                                Text(
+                                  state.currentError != null
+                                      ? 'Error'
+                                      : latestAction!.action.length > 20
+                                          ? '${latestAction.action.substring(0, 20)}...'
+                                          : latestAction.action,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ],
+                            )
+                          else
+                            const Text(
+                              'Action History',
+                              style: TextStyle(fontSize: 12),
+                            ),
                         ],
                       ),
                     ),
