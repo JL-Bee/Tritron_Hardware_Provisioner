@@ -243,8 +243,6 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
   StreamSubscription? _nodeFoundSubscription;
   Timer? _provisioningTimer;
   final StringBuffer _rxBuffer = StringBuffer();
-  Timer? _rxTimer;
-  static const Duration _rxTimeout = Duration(milliseconds: 100);
 
   ProvisionerBloc() : super(ProvisionerState()) {
     on<ConnectToPort>(_onConnectToPort);
@@ -309,7 +307,6 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     _dataSubscription?.cancel();
     _nodeFoundSubscription?.cancel();
     _provisioningTimer?.cancel();
-    _rxTimer?.cancel();
     _rxBuffer.clear();
     _consoleService?.dispose();
     await _serialService.disconnect();
@@ -641,18 +638,6 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     _rxBuffer
       ..clear()
       ..write(bufferStr);
-
-    _rxTimer?.cancel();
-    if (_rxBuffer.isNotEmpty) {
-      _rxTimer = Timer(_rxTimeout, () {
-        final leftover = _rxBuffer.toString().trim();
-        _rxBuffer.clear();
-        if (leftover.isNotEmpty) {
-          add(AddConsoleEntry('$leftover {timedout}', ConsoleEntryType.response,
-              timedOut: true));
-        }
-      });
-    }
   }
 
   void _addActionResult(String action, bool success, String? message, Emitter<ProvisionerState> emit) {
@@ -679,7 +664,6 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     _dataSubscription?.cancel();
     _nodeFoundSubscription?.cancel();
     _provisioningTimer?.cancel();
-    _rxTimer?.cancel();
     _rxBuffer.clear();
     _consoleService?.dispose();
     _serialService.dispose();
