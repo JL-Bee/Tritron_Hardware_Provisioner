@@ -1,3 +1,5 @@
+<!-- bluetooth_mesh_hardware_provisioner/README.md -->
+
 # Tritron Hardware Provisioner
 
 A comprehensive Flutter application for provisioning and managing Bluetooth mesh networks using NRF52 DK hardware.
@@ -55,22 +57,44 @@ lib/
 
 ## NRF52 DK Commands
 
-The app communicates with the NRF52 DK using shell commands:
+The app communicates with the NRF52 DK using shell commands.
+All commands must be prefixed with `mesh/`.
 
-### List Commands
-- `prov list unprov` - List unprovisioned devices
-- `prov list nodes` - List provisioned nodes
+### General Commands
+- `mesh/factory_reset` - Factory reset the provisioner
 
-### Provisioning Commands
-- `prov status` - Show current provisioning status
-- `prov prov {UUID}` - Provision a device
-- `prov unprov {addr}` - Unprovision a node
-- `prov remove {addr}` - Remove node from database
+### Provision Commands
+- `mesh/provision/scan/get` - List provisionable device UUIDs
+- `mesh/provision/provision {uuid}` - Provision a device
+- `mesh/provision/result/get` - Get last provisioning result
+- `mesh/provision/status/get` - Get provisioning state
+- `mesh/provision/last_addr/get` - Get the last assigned address
 
-### Subscribe Address Commands
-- `prov sub add {node_addr} {group_addr}` - Add subscribe address
-- `prov sub remove {node_addr} {group_addr}` - Remove subscribe address
-- `prov sub get {node_addr}` - Get subscribe list
+### Device Commands
+- `mesh/device/reset {node_addr}` - Reset and unprovision a node
+- `mesh/device/remove {node_addr}` - Remove a node from the local DB
+- `mesh/device/label/get {node_addr}` - Fetch the node's label
+- `mesh/device/label/set {node_addr} {label}` - Set a label for the node
+- `mesh/device/identify` - Identify a node
+- `mesh/device/list` - List provisioned nodes
+
+### Subscription Commands
+- `mesh/device/sub/add {node_addr} {sub_addr}` - Add subscribe address
+- `mesh/device/sub/remove {node_addr} {sub_addr}` - Remove subscribe address
+- `mesh/device/sub/reset {node_addr}` - Reset subscribe list
+- `mesh/device/sub/get {node_addr}` - Get subscribe list
+
+### Lighting Control Commands
+- `mesh/dali_lc/idle_arc/set {node_addr} {arc}` - Set idle arc level
+- `mesh/dali_lc/idle_arc/get {node_addr}` - Get idle arc level
+- `mesh/dali_lc/trigger_arc/set {node_addr} {arc}` - Set trigger arc level
+- `mesh/dali_lc/trigger_arc/get {node_addr}` - Get trigger arc level
+- `mesh/dali_lc/hold_time/set {node_addr} {hold_time}` - Set hold time
+- `mesh/dali_lc/hold_time/get {node_addr}` - Get hold time
+
+### Radar Commands
+- `mesh/radar/sensitivity/set {node_addr} {sensitivity}` - Set radar sensitivity
+- `mesh/radar/sensitivity/get {node_addr}` - Get radar sensitivity
 
 ## Platform Setup
 
