@@ -58,9 +58,16 @@ class AddConsoleEntry extends ProvisionerEvent {
   AddConsoleEntry(this.text, this.type, {this.timedOut = false});
 }
 
-class SendConsoleCommand extends ProvisionerEvent {
-  final String command;
-  SendConsoleCommand(this.command);
+/// Event triggered when a new unprovisioned node is discovered.
+///
+/// Carries the UUID string of the detected node so that the BLoC can
+/// update the list of found nodes.
+class NodeDiscovered extends ProvisionerEvent {
+  /// UUID of the newly discovered node.
+  final String uuid;
+
+  /// Creates a [NodeDiscovered] event carrying the discovered node [uuid].
+  NodeDiscovered(this.uuid);
 }
 
 // States
@@ -256,7 +263,11 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     on<SelectDevice>(_onSelectDevice);
     on<ClearError>(_onClearError);
     on<AddConsoleEntry>(_onAddConsoleEntry);
+<<<<<<< HEAD
     on<SendConsoleCommand>(_onSendConsoleCommand);
+=======
+    on<NodeDiscovered>(_onNodeDiscovered);
+>>>>>>> origin/main
   }
 
   Future<void> _onConnectToPort(ConnectToPort event, Emitter<ProvisionerState> emit) async {
@@ -278,9 +289,9 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
           _serialService.dataStream.listen(_handleIncomingData);
 
       // Listen for new nodes
-      _nodeFoundSubscription = _consoleService!.nodeFoundStream.listen((uuid) {
-        final updatedUuids = Set<String>.from(state.foundUuids)..add(uuid);
-        emit(state.copyWith(foundUuids: updatedUuids));
+      _nodeFoundSubscription =
+          _consoleService!.nodeFoundStream.listen((uuid) {
+        add(NodeDiscovered(uuid));
       });
 
       emit(state.copyWith(
@@ -607,6 +618,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     emit(state.copyWith(consoleEntries: entries, currentAction: current));
   }
 
+<<<<<<< HEAD
   Future<void> _onSendConsoleCommand(SendConsoleCommand event, Emitter<ProvisionerState> emit) async {
     if (_consoleService == null) return;
 
@@ -619,6 +631,12 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     } catch (e) {
       add(AddConsoleEntry('Error: $e', ConsoleEntryType.error));
     }
+=======
+  /// Updates the list of discovered node UUIDs when a new node is found.
+  void _onNodeDiscovered(NodeDiscovered event, Emitter<ProvisionerState> emit) {
+    final updated = Set<String>.from(state.foundUuids)..add(event.uuid);
+    emit(state.copyWith(foundUuids: updated));
+>>>>>>> origin/main
   }
 
   void _handleIncomingData(String data) {
