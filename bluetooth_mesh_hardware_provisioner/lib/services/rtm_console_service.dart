@@ -15,6 +15,7 @@ class RTMConsoleService {
   final StringBuffer _lineBuffer = StringBuffer();
   final List<String> _responseLines = [];
   Timer? _responseTimer;
+  StreamSubscription? _dataSubscription;
 
   Stream<ConsoleResponse> get responseStream => _responseController.stream;
   Stream<String> get nodeFoundStream => _nodeFoundController.stream;
@@ -28,7 +29,7 @@ class RTMConsoleService {
   }
 
   void _listenToData() {
-    _dataStream.listen((data) {
+    _dataSubscription = _dataStream.listen((data) {
       // Add data to line buffer
       _lineBuffer.write(data);
 
@@ -55,18 +56,24 @@ class RTMConsoleService {
           }
         }
 
+        // Check for error logs
+        if (trimmed.contains('<err>') || trimmed.contains('<wrn>')) {
+          // Log error but don't interrupt command processing
+          // print('Device log: $trimmed');
+        }
+
         // Collect response lines
         if (trimmed.startsWith('~>')) {
           _responseLines.add(trimmed);
 
           // Check if response is complete
-          if (trimmed == '~>\$ok') {
-            _completeResponse(true);
+          if (trimmed == '~>\$ok' || trimmed == '~>\$error' || trimmed == '~>\$unknown') {
+            _completeResponse();
           } else {
             // Reset timer for more response lines
             _responseTimer?.cancel();
-            _responseTimer = Timer(const Duration(milliseconds: 100), () {
-              _completeResponse(false);
+            _responseTimer = Timer(const Duration(milliseconds: 200), () {
+              _completeResponse();
             });
           }
         }
@@ -74,13 +81,23 @@ class RTMConsoleService {
     });
   }
 
-  void _completeResponse(bool hasOk) {
+  void _completeResponse() {
     if (_commandCompleters.isEmpty) return;
 
-    // Build response
+    // Parse response
     final lines = <String>[];
+    bool hasOk = false;
+    bool hasError = false;
+    bool hasUnknown = false;
+
     for (final line in _responseLines) {
-      if (line.startsWith('~>') && line != '~>\$ok') {
+      if (line == '~>\$ok') {
+        hasOk = true;
+      } else if (line == '~>\$error') {
+        hasError = true;
+      } else if (line == '~>\$unknown') {
+        hasUnknown = true;
+      } else if (line.startsWith('~>') && line.length > 2) {
         lines.add(line.substring(2)); // Remove ~> prefix
       }
     }
@@ -88,7 +105,7 @@ class RTMConsoleService {
     final response = ConsoleResponse(
       type: ResponseType.commandResponse,
       data: lines,
-      success: hasOk,
+      success: hasOk && !hasError && !hasUnknown,
     );
 
     // Complete the first waiting command
@@ -122,20 +139,33 @@ class RTMConsoleService {
     }
   }
 
+  /// Send a raw command without waiting for response
+  Future<void> sendRawCommand(String command) async {
+    await _sendCommand('$command\r\n');
+  }
+
   /// Scan for unprovisioned devices
   Future<List<String>> scanDevices() async {
     final response = await execute(RTMConsoleProtocol.cmdScanGet);
-    if (!response.success) return [];
 
-    return RTMConsoleProtocol.parseScanResult(response.lines);
+    // Even if the command returns "unknown", parse any UUIDs in the response
+    if (response.lines.isNotEmpty) {
+      return RTMConsoleProtocol.parseScanResult(response.lines);
+    }
+
+    return [];
   }
 
   /// List provisioned devices
   Future<List<MeshDevice>> listDevices() async {
     final response = await execute(RTMConsoleProtocol.cmdDeviceList);
-    if (!response.success) return [];
 
-    return RTMConsoleProtocol.parseDeviceList(response.lines);
+    // Even if the command returns "unknown", parse any devices in the response
+    if (response.lines.isNotEmpty) {
+      return RTMConsoleProtocol.parseDeviceList(response.lines);
+    }
+
+    return [];
   }
 
   /// Provision a device
@@ -147,7 +177,7 @@ class RTMConsoleService {
   /// Get provisioning result
   Future<int?> getProvisionResult() async {
     final response = await execute(RTMConsoleProtocol.cmdProvisionResult);
-    if (!response.success) return null;
+    if (!response.success || response.lines.isEmpty) return null;
 
     return RTMConsoleProtocol.parseProvisionResult(response.lines);
   }
@@ -155,7 +185,7 @@ class RTMConsoleService {
   /// Get provisioning status
   Future<String> getProvisionStatus() async {
     final response = await execute(RTMConsoleProtocol.cmdProvisionStatus);
-    if (!response.success) return 'Unknown';
+    if (response.lines.isEmpty) return 'Unknown';
 
     return response.lines.join(' ');
   }
@@ -163,7 +193,7 @@ class RTMConsoleService {
   /// Get last provisioned address
   Future<int?> getLastAddress() async {
     final response = await execute(RTMConsoleProtocol.cmdLastAddr);
-    if (!response.success) return null;
+    if (!response.success || response.lines.isEmpty) return null;
 
     return RTMConsoleProtocol.parseLastAddress(response.lines);
   }
@@ -200,7 +230,7 @@ class RTMConsoleService {
   Future<List<int>> getSubscribeAddresses(int nodeAddr) async {
     final nodeHex = '0x${nodeAddr.toRadixString(16)}';
     final response = await execute('${RTMConsoleProtocol.cmdSubGet} $nodeHex');
-    if (!response.success) return [];
+    if (!response.success || response.lines.isEmpty) return [];
 
     return RTMConsoleProtocol.parseSubscribeAddresses(response.lines);
   }
@@ -236,6 +266,7 @@ class RTMConsoleService {
 
   void dispose() {
     _responseTimer?.cancel();
+    _dataSubscription?.cancel();
     _responseController.close();
     _nodeFoundController.close();
 

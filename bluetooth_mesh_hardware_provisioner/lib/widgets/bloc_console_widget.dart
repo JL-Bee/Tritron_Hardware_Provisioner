@@ -32,11 +32,10 @@ class _BlocConsoleWidgetState extends State<BlocConsoleWidget> {
 
     _commandController.clear();
 
-    // TODO: Actually send command through console service
-    // For now, this is just for UI demonstration
+    // Send command through BLoC
     context
         .read<ProvisionerBloc>()
-        .add(AddConsoleEntry(command, ConsoleEntryType.command));
+        .add(SendConsoleCommand(command));
   }
 
   void _copyToClipboard(List<ConsoleEntry> entries) {

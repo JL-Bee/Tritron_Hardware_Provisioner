@@ -124,7 +124,60 @@ class _BlocMainScreenState extends State<BlocMainScreen>
           appBar: AppBar(
             title: const Text('Bluetooth Mesh Provisioner'),
             backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-            actions: const [],
+            actions: [
+              PopupMenuButton<String>(
+                onSelected: (value) async {
+                  if (value == 'factory_reset') {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Factory Reset'),
+                        content: const Text(
+                          'This will clear all provisioned devices from the provisioner\'s database. Continue?',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('Cancel'),
+                          ),
+                          FilledButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                            child: const Text('Reset'),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirm == true && mounted) {
+                      context.read<provisioner.ProvisionerBloc>().add(
+                        provisioner.SendConsoleCommand('mesh/factory_reset'),
+                      );
+                      // Refresh lists after reset
+                      Future.delayed(const Duration(seconds: 1), () {
+                        if (mounted) {
+                          context.read<provisioner.ProvisionerBloc>()
+                            ..add(provisioner.ScanDevices())
+                            ..add(provisioner.RefreshDeviceList());
+                        }
+                      });
+                    }
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'factory_reset',
+                    child: Row(
+                      children: [
+                        Icon(Icons.warning, color: Colors.red),
+                        SizedBox(width: 8),
+                        Text('Factory Reset'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
             bottom: TabBar(
               controller: _tabController,
               tabs: [
@@ -227,7 +280,6 @@ class _BlocMainScreenState extends State<BlocMainScreen>
           body: Column(
             children: [
               _buildStatusBar(state),
-              _buildCurrentAction(state),
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
@@ -400,6 +452,28 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                 ),
               ),
             )),
+            if (state.foundUuids.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Card(
+                  color: Colors.blue.shade50,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, color: Colors.blue.shade700),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'If devices show as "already provisioned", use Menu → Factory Reset to clear the database.',
+                            style: TextStyle(fontSize: 12, color: Colors.blue.shade900),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             const Divider(height: 32),
           ],
 
@@ -619,27 +693,45 @@ class _BlocMainScreenState extends State<BlocMainScreen>
   }
 
   Future<void> _confirmUnprovision(BuildContext context, MeshDevice device) async {
-    final confirm = await showDialog<bool>(
+    final action = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Unprovision Device'),
-        content: Text('Remove device ${device.addressHex} from the network?'),
+        title: const Text('Device Actions'),
+        content: Text('Select action for device ${device.addressHex}:'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(context, 'reset'),
+            style: FilledButton.styleFrom(backgroundColor: Colors.orange),
+            child: const Text('Reset Device'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, 'remove'),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Unprovision'),
+            child: const Text('Remove from DB'),
           ),
         ],
       ),
     );
 
-    if (confirm == true && mounted) {
-      context.read<provisioner.ProvisionerBloc>().add(provisioner.UnprovisionDevice(device));
+    if (action != null && mounted) {
+      if (action == 'reset') {
+        context.read<provisioner.ProvisionerBloc>().add(provisioner.UnprovisionDevice(device));
+      } else if (action == 'remove') {
+        // Just remove from database without resetting the device
+        context.read<provisioner.ProvisionerBloc>().add(
+          provisioner.SendConsoleCommand('mesh/device/remove 0x${device.address.toRadixString(16)}'),
+        );
+        // Refresh list after removal
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) {
+            context.read<provisioner.ProvisionerBloc>().add(provisioner.RefreshDeviceList());
+          }
+        });
+      }
     }
   }
 

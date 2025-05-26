@@ -58,6 +58,11 @@ class AddConsoleEntry extends ProvisionerEvent {
   AddConsoleEntry(this.text, this.type, {this.timedOut = false});
 }
 
+class SendConsoleCommand extends ProvisionerEvent {
+  final String command;
+  SendConsoleCommand(this.command);
+}
+
 // States
 class ProvisionerState {
   final ConnectionStatus connectionStatus;
@@ -202,9 +207,9 @@ class ActionResult {
     return ActionResult(
       action: action,
       success: success ?? this.success,
-      message: message ?? this.message,
-      log: log ?? this.log,
-      timestamp: this.timestamp,
+      message: message ?? message,
+      log: log ?? log,
+      timestamp: timestamp,
     );
   }
 }
@@ -253,6 +258,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     on<SelectDevice>(_onSelectDevice);
     on<ClearError>(_onClearError);
     on<AddConsoleEntry>(_onAddConsoleEntry);
+    on<SendConsoleCommand>(_onSendConsoleCommand);
   }
 
   Future<void> _onConnectToPort(ConnectToPort event, Emitter<ProvisionerState> emit) async {
@@ -316,7 +322,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
 
     emit(state.copyWith(
       isScanning: true,
-      currentAction: const ActionExecution(action: 'Device scan'),
+      currentAction: ActionExecution(action: 'Device scan'),
     ));
 
     try {
@@ -364,48 +370,66 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     try {
       final success = await _consoleService!.provisionDevice(event.uuid);
 
-      if (success) {
-        _provisioningTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
-          if (!state.isProvisioning) {
-            timer.cancel();
-            return;
-          }
+      if (!success) {
+        // Check if device is already provisioned
+        final devices = await _consoleService!.listDevices();
+        final isAlreadyProvisioned = devices.any((d) => d.uuid == event.uuid);
 
-          final status = await _consoleService!.getProvisionStatus();
-          emit(state.copyWith(provisioningStatus: status));
+        if (isAlreadyProvisioned) {
+          emit(state.copyWith(
+            isProvisioning: false,
+            provisioningUuid: null,
+            currentError: AppError(
+              message: 'Device is already provisioned. Use Factory Reset to clear the database.',
+              severity: ErrorSeverity.warning,
+            ),
+          ));
+          _addActionResult('Provision device', false, 'Already provisioned', emit);
+          return;
+        }
 
-          if (status.contains('completed') || status.contains('failed')) {
-            timer.cancel();
-
-            final result = await _consoleService!.getProvisionResult();
-            if (result == 0) {
-              final updatedUuids = Set<String>.from(state.foundUuids)..remove(event.uuid);
-              emit(state.copyWith(
-                foundUuids: updatedUuids,
-                isProvisioning: false,
-                provisioningUuid: null,
-              ));
-
-              add(RefreshDeviceList());
-              _addActionResult('Provision device', true, 'Device provisioned successfully', emit);
-            } else {
-              emit(state.copyWith(
-                isProvisioning: false,
-                provisioningUuid: null,
-                currentError: AppError(message: 'Provisioning failed with error: $result'),
-              ));
-              _addActionResult('Provision device', false, 'Error code: $result', emit);
-            }
-          }
-        });
-      } else {
         emit(state.copyWith(
           isProvisioning: false,
           provisioningUuid: null,
           currentError: AppError(message: 'Failed to start provisioning'),
         ));
         _addActionResult('Provision device', false, 'Failed to start', emit);
+        return;
       }
+
+      _provisioningTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
+        if (!state.isProvisioning) {
+          timer.cancel();
+          return;
+        }
+
+        final status = await _consoleService!.getProvisionStatus();
+        emit(state.copyWith(provisioningStatus: status));
+
+        if (status.contains('completed') || status.contains('failed') || status.contains('timeout')) {
+          timer.cancel();
+
+          final result = await _consoleService!.getProvisionResult();
+          if (result == 0) {
+            final updatedUuids = Set<String>.from(state.foundUuids)..remove(event.uuid);
+            emit(state.copyWith(
+              foundUuids: updatedUuids,
+              isProvisioning: false,
+              provisioningUuid: null,
+            ));
+
+            add(RefreshDeviceList());
+            _addActionResult('Provision device', true, 'Device provisioned successfully', emit);
+          } else {
+            emit(state.copyWith(
+              isProvisioning: false,
+              provisioningUuid: null,
+              currentError: AppError(message: 'Provisioning failed with error: $result'),
+            ));
+            _addActionResult('Provision device', false, 'Error code: $result', emit);
+          }
+        }
+      });
     } catch (e) {
       emit(state.copyWith(
         isProvisioning: false,
@@ -584,6 +608,20 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     }
 
     emit(state.copyWith(consoleEntries: entries, currentAction: current));
+  }
+
+  Future<void> _onSendConsoleCommand(SendConsoleCommand event, Emitter<ProvisionerState> emit) async {
+    if (_consoleService == null) return;
+
+    try {
+      // Add command to console
+      add(AddConsoleEntry(event.command, ConsoleEntryType.command));
+
+      // Send raw command
+      await _consoleService!.sendRawCommand(event.command);
+    } catch (e) {
+      add(AddConsoleEntry('Error: $e', ConsoleEntryType.error));
+    }
   }
 
   void _handleIncomingData(String data) {
