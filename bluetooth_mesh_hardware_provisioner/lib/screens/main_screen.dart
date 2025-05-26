@@ -25,7 +25,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _autoConnect();
   }
 
@@ -91,52 +91,104 @@ class _BlocMainScreenState extends State<BlocMainScreen>
           );
         }
 
+        // Get the current action/error for display
+        final latestAction = state.actionHistory.isNotEmpty
+            ? state.actionHistory.last
+            : null;
+        final hasRecentActivity = latestAction != null &&
+            DateTime.now().difference(latestAction.timestamp).inSeconds < 3;
+
+        // Auto-clear error after 1.5 seconds
+        if (state.currentError != null) {
+          Future.delayed(const Duration(milliseconds: 1500), () {
+            if (mounted) {
+              context.read<provisioner.ProvisionerBloc>().add(provisioner.ClearError());
+            }
+          });
+        }
+
         return Scaffold(
           appBar: AppBar(
             title: const Text('Bluetooth Mesh Provisioner'),
             backgroundColor: Theme.of(context).colorScheme.inversePrimary,
             bottom: TabBar(
               controller: _tabController,
-              tabs: const [
-                Tab(text: 'Devices', icon: Icon(Icons.devices)),
-                Tab(text: 'Details', icon: Icon(Icons.info)),
-                Tab(text: 'Console', icon: Icon(Icons.terminal)),
+              tabs: [
+                const Tab(text: 'Devices', icon: Icon(Icons.devices)),
+                const Tab(text: 'Details', icon: Icon(Icons.info)),
+                const Tab(text: 'Console', icon: Icon(Icons.terminal)),
+                Tab(
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ActionHistoryScreen(),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (state.currentError != null)
+                            Icon(Icons.error, color: Colors.red, size: 16)
+                          else if (hasRecentActivity && latestAction != null)
+                            Icon(
+                              latestAction.success ? Icons.check_circle : Icons.cancel,
+                              color: latestAction.success ? Colors.green : Colors.orange,
+                              size: 16,
+                            )
+                          else
+                            const Icon(Icons.history, size: 16),
+                          const SizedBox(width: 4),
+                          Text(
+                            state.currentError != null
+                                ? 'Error'
+                                : hasRecentActivity && latestAction != null
+                                    ? latestAction.action.length > 20
+                                        ? '${latestAction.action.substring(0, 20)}...'
+                                        : latestAction.action
+                                    : 'Idle',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ],
-            ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.history),
-                onPressed: () {
+              onTap: (index) {
+                if (index == 3) {
+                  // Navigate to action history instead of switching tab
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => const ActionHistoryScreen(),
                     ),
                   );
-                },
-                tooltip: 'Action History',
-              ),
-            ],
+                  // Reset tab to previous
+                  _tabController.animateTo(_tabController.previousIndex);
+                }
+              },
+            ),
           ),
-          body: Stack(
+          body: Column(
             children: [
-              Column(
-                children: [
-                  _buildStatusBar(state),
-                  Expanded(
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: [
-                        _buildDevicesTab(state),
-                        _buildDetailsTab(state),
-                        const BlocConsoleWidget(),
-                      ],
-                    ),
-                  ),
-                ],
+              _buildStatusBar(state),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  physics: const NeverScrollableScrollPhysics(), // Prevent swiping to action tab
+                  children: [
+                    _buildDevicesTab(state),
+                    _buildDetailsTab(state),
+                    const BlocConsoleWidget(),
+                    const SizedBox(), // Empty placeholder for action tab
+                  ],
+                ),
               ),
-              // Error notification overlay
-              const ErrorNotification(),
             ],
           ),
         );
@@ -154,30 +206,15 @@ class _BlocMainScreenState extends State<BlocMainScreen>
           const SizedBox(width: 8),
           SelectableText(state.connectedPort?.displayName ?? 'Connected'),
           const Spacer(),
-          if (state.isProvisioning) ...[
-            const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: SelectableText(
-                state.provisioningStatus,
-                style: const TextStyle(overflow: TextOverflow.ellipsis),
-              ),
-            ),
-          ] else ...[
-            Chip(
-              label: Text('${state.foundUuids.length} new'),
-              avatar: const Icon(Icons.bluetooth_searching, size: 16),
-            ),
-            const SizedBox(width: 8),
-            Chip(
-              label: Text('${state.provisionedDevices.length} provisioned'),
-              avatar: const Icon(Icons.check_circle, size: 16),
-            ),
-          ],
+          Chip(
+            label: Text('${state.foundUuids.length} new'),
+            avatar: const Icon(Icons.bluetooth_searching, size: 16),
+          ),
+          const SizedBox(width: 8),
+          Chip(
+            label: Text('${state.provisionedDevices.length} provisioned'),
+            avatar: const Icon(Icons.check_circle, size: 16),
+          ),
         ],
       ),
     );
@@ -249,11 +286,38 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                     ),
                   ],
                 ),
-                trailing: FilledButton(
-                  onPressed: state.isProvisioning
-                      ? null
-                      : () => context.read<provisioner.ProvisionerBloc>().add(provisioner.ProvisionDevice(uuid)),
-                  child: const Text('Provision'),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    OutlinedButton(
+                      onPressed: () {
+                        // TODO: Implement identify functionality
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Identify not yet implemented'),
+                            duration: Duration(seconds: 1),
+                          ),
+                        );
+                      },
+                      child: const Text('Identify'),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed: state.isProvisioning && state.provisioningUuid == uuid
+                          ? null
+                          : () => context.read<provisioner.ProvisionerBloc>().add(provisioner.ProvisionDevice(uuid)),
+                      child: state.isProvisioning && state.provisioningUuid == uuid
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text('Provision'),
+                    ),
+                  ],
                 ),
               ),
             )),

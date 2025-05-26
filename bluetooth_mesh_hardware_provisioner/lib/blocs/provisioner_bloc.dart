@@ -67,6 +67,7 @@ class ProvisionerState {
   final bool isScanning;
   final bool isProvisioning;
   final String provisioningStatus;
+  final String? provisioningUuid;
   final List<ConsoleEntry> consoleEntries;
   final AppError? currentError;
   final List<ActionResult> actionHistory;
@@ -81,6 +82,7 @@ class ProvisionerState {
     this.isScanning = false,
     this.isProvisioning = false,
     this.provisioningStatus = '',
+    this.provisioningUuid,
     List<ConsoleEntry>? consoleEntries,
     this.currentError,
     List<ActionResult>? actionHistory,
@@ -100,6 +102,7 @@ class ProvisionerState {
     bool? isScanning,
     bool? isProvisioning,
     String? provisioningStatus,
+    String? provisioningUuid,
     List<ConsoleEntry>? consoleEntries,
     AppError? currentError,
     bool clearError = false,
@@ -115,6 +118,7 @@ class ProvisionerState {
       isScanning: isScanning ?? this.isScanning,
       isProvisioning: isProvisioning ?? this.isProvisioning,
       provisioningStatus: provisioningStatus ?? this.provisioningStatus,
+      provisioningUuid: provisioningUuid ?? this.provisioningUuid,
       consoleEntries: consoleEntries ?? this.consoleEntries,
       currentError: clearError ? null : (currentError ?? this.currentError),
       actionHistory: actionHistory ?? this.actionHistory,
@@ -300,6 +304,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     emit(state.copyWith(
       isProvisioning: true,
       provisioningStatus: 'Starting provisioning...',
+      provisioningUuid: event.uuid,
     ));
 
     try {
@@ -324,6 +329,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
               emit(state.copyWith(
                 foundUuids: updatedUuids,
                 isProvisioning: false,
+                provisioningUuid: null,
               ));
 
               add(RefreshDeviceList());
@@ -331,6 +337,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
             } else {
               emit(state.copyWith(
                 isProvisioning: false,
+                provisioningUuid: null,
                 currentError: AppError(message: 'Provisioning failed with error: $result'),
               ));
               _addActionResult('Provision device', false, 'Error code: $result', emit);
@@ -340,6 +347,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
       } else {
         emit(state.copyWith(
           isProvisioning: false,
+          provisioningUuid: null,
           currentError: AppError(message: 'Failed to start provisioning'),
         ));
         _addActionResult('Provision device', false, 'Failed to start', emit);
@@ -347,6 +355,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     } catch (e) {
       emit(state.copyWith(
         isProvisioning: false,
+        provisioningUuid: null,
         currentError: AppError(message: 'Provisioning error: $e'),
       ));
       _addActionResult('Provision device', false, e.toString(), emit);

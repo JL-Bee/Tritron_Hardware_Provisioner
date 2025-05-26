@@ -32,7 +32,7 @@ class _BlocConsoleWidgetState extends State<BlocConsoleWidget> {
 
     _commandController.clear();
 
-    // Get the console service from somewhere - you might want to expose it from bloc
+    // TODO: Actually send command through console service
     // For now, this is just for UI demonstration
     context.read<ProvisionerBloc>().add(AddConsoleEntry(command, ConsoleEntryType.command));
   }
@@ -96,7 +96,7 @@ class _BlocConsoleWidgetState extends State<BlocConsoleWidget> {
               ),
             ),
 
-            // Console output
+            // Console output - using SelectionArea for better multi-line selection
             Expanded(
               child: Container(
                 color: const Color(0xFF1E1E1E),
@@ -107,16 +107,18 @@ class _BlocConsoleWidgetState extends State<BlocConsoleWidget> {
                           style: TextStyle(color: Colors.grey),
                         ),
                       )
-                    : Scrollbar(
-                        controller: _scrollController,
-                        child: ListView.builder(
+                    : SelectionArea(
+                        child: Scrollbar(
                           controller: _scrollController,
-                          padding: const EdgeInsets.all(8),
-                          itemCount: state.consoleEntries.length,
-                          itemBuilder: (context, index) {
-                            final entry = state.consoleEntries[index];
-                            return _ConsoleEntryWidget(entry: entry);
-                          },
+                          child: ListView.builder(
+                            controller: _scrollController,
+                            padding: const EdgeInsets.all(8),
+                            itemCount: state.consoleEntries.length,
+                            itemBuilder: (context, index) {
+                              final entry = state.consoleEntries[index];
+                              return _ConsoleEntryWidget(entry: entry);
+                            },
+                          ),
                         ),
                       ),
               ),
@@ -189,35 +191,38 @@ class _ConsoleEntryWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SelectableText.rich(
-      TextSpan(
-        children: [
-          TextSpan(
-            text: '[${_formatTime(entry.timestamp)}] ',
-            style: TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 12,
-              color: Colors.grey.shade600,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 1.0),
+      child: Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(
+              text: '[${_formatTime(entry.timestamp)}] ',
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 12,
+                color: Colors.grey.shade600,
+              ),
             ),
-          ),
-          TextSpan(
-            text: '[${_getTypePrefix(entry.type)}] ',
-            style: TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 12,
-              color: _getPrefixColor(entry.type),
-              fontWeight: FontWeight.bold,
+            TextSpan(
+              text: '[${_getTypePrefix(entry.type)}] ',
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 12,
+                color: _getPrefixColor(entry.type),
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
-          TextSpan(
-            text: entry.text,
-            style: TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 12,
-              color: _getTextColor(entry.type),
+            TextSpan(
+              text: entry.text,
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 12,
+                color: _getTextColor(entry.type),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
