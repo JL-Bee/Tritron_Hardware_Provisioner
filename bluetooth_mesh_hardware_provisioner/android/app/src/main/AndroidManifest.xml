@@ -42,4 +42,26 @@
             <data android:mimeType="text/plain"/>
         </intent>
     </queries>
+
+    <uses-permission android:name="android.permission.USB_PERMISSION" />
+    <uses-feature android:name="android.hardware.usb.host" />
+
+    <!-- Inside the <application> tag, in the MainActivity intent-filter, add: -->
+    <intent-filter>
+        <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
+    </intent-filter>
+    <meta-data
+        android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
+        android:resource="@xml/device_filter" />
+
+    <!-- Also create a new file: android/app/src/main/res/xml/device_filter.xml -->
+    <?xml version="1.0" encoding="utf-8"?>
+    <resources>
+        <!-- Nordic Semiconductor devices -->
+        <usb-device vendor-id="4966" /> <!-- 0x1366 in decimal -->
+        <!-- SEGGER J-Link devices (often used with NRF52) -->
+        <usb-device vendor-id="4966" product-id="4117" /> <!-- J-Link -->
+        <!-- Add more specific device filters as needed -->
+    </resources>
+
 </manifest>
