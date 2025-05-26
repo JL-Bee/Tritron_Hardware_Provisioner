@@ -34,13 +34,16 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
-  
+
   # Serial port communication
   flutter_libserialport: ^0.3.0
 
   # Permission handling
   permission_handler: ^11.0.1
 
+  # State management
+  flutter_bloc: ^8.1.3
+  
 dev_dependencies:
   flutter_test:
     sdk: flutter
