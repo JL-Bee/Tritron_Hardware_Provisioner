@@ -46,27 +46,54 @@ class _ConsoleWidgetState extends State<ConsoleWidget> {
     widget.dataStream.listen((data) {
       _rxBuffer += data;
 
-      // Cancel existing timer
-      _rxTimer?.cancel();
+      // Process any complete lines immediately
+      while (_rxBuffer.contains('\n')) {
+        final index = _rxBuffer.indexOf('\n');
+        final line = _rxBuffer.substring(0, index).trim();
+        if (line.isNotEmpty) {
+          _addEntry(ConsoleEntry(
+            text: line,
+            type: EntryType.received,
+            timestamp: DateTime.now(),
+          ));
+        }
+        _rxBuffer = _rxBuffer.substring(index + 1);
+      }
 
-      // Set a new timer to process buffer after a short delay
-      _rxTimer = Timer(const Duration(milliseconds: 50), () {
-        _processBuffer();
-      });
+      // Reset timeout for remaining data
+      _rxTimer?.cancel();
+      if (_rxBuffer.isNotEmpty) {
+        _rxTimer = Timer(const Duration(milliseconds: 50), () {
+          _processBuffer(timedOut: true);
+        });
+      }
     });
   }
 
-  void _processBuffer() {
+  void _processBuffer({bool timedOut = false}) {
     if (_rxBuffer.isEmpty) return;
 
     // Split by newlines but keep track of incomplete lines
     final lines = _rxBuffer.split('\n');
 
-    // If buffer doesn't end with newline, keep last part for next time
-    if (!_rxBuffer.endsWith('\n')) {
-      _rxBuffer = lines.removeLast();
-    } else {
-      _rxBuffer = '';
+    final incomplete = !_rxBuffer.endsWith('\n');
+    final lastPart = lines.removeLast();
+    _rxBuffer = '';
+
+    if (incomplete) {
+      if (timedOut) {
+        final trimmed = lastPart.trim();
+        if (trimmed.isNotEmpty) {
+          _addEntry(ConsoleEntry(
+            text: '$trimmed {timedout}',
+            type: EntryType.received,
+            timestamp: DateTime.now(),
+            timedOut: true,
+          ));
+        }
+      } else {
+        _rxBuffer = lastPart;
+      }
     }
 
     // Process complete lines
@@ -279,11 +306,13 @@ class ConsoleEntry {
   final String text;
   final EntryType type;
   final DateTime timestamp;
+  final bool timedOut;
 
   ConsoleEntry({
     required this.text,
     required this.type,
     required this.timestamp,
+    this.timedOut = false,
   });
 
   String get typePrefix {
@@ -300,6 +329,9 @@ class ConsoleEntry {
   }
 
   Color get prefixColor {
+    if (type == EntryType.received && timedOut) {
+      return Colors.red.shade300;
+    }
     switch (type) {
       case EntryType.command:
         return Colors.blue.shade300;

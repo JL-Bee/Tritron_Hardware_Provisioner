@@ -53,7 +53,9 @@ class ClearError extends ProvisionerEvent {}
 class AddConsoleEntry extends ProvisionerEvent {
   final String text;
   final ConsoleEntryType type;
-  AddConsoleEntry(this.text, this.type);
+  final bool timedOut;
+
+  AddConsoleEntry(this.text, this.type, {this.timedOut = false});
 }
 
 // States
@@ -144,11 +146,13 @@ class ConsoleEntry {
   final String text;
   final ConsoleEntryType type;
   final DateTime timestamp;
+  final bool timedOut;
 
   ConsoleEntry({
     required this.text,
     required this.type,
     DateTime? timestamp,
+    this.timedOut = false,
   }) : timestamp = timestamp ?? DateTime.now();
 }
 
@@ -191,6 +195,9 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
   StreamSubscription? _dataSubscription;
   StreamSubscription? _nodeFoundSubscription;
   Timer? _provisioningTimer;
+  final StringBuffer _rxBuffer = StringBuffer();
+  Timer? _rxTimer;
+  static const Duration _rxTimeout = Duration(milliseconds: 100);
 
   ProvisionerBloc() : super(ProvisionerState()) {
     on<ConnectToPort>(_onConnectToPort);
@@ -221,9 +228,8 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
       );
 
       // Listen to raw data for console
-      _dataSubscription = _serialService.dataStream.listen((data) {
-        add(AddConsoleEntry(data.trim(), ConsoleEntryType.response));
-      });
+      _dataSubscription =
+          _serialService.dataStream.listen(_handleIncomingData);
 
       // Listen for new nodes
       _nodeFoundSubscription = _consoleService!.nodeFoundStream.listen((uuid) {
@@ -255,6 +261,8 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     _dataSubscription?.cancel();
     _nodeFoundSubscription?.cancel();
     _provisioningTimer?.cancel();
+    _rxTimer?.cancel();
+    _rxBuffer.clear();
     _consoleService?.dispose();
     await _serialService.disconnect();
 
@@ -489,7 +497,11 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
 
   void _onAddConsoleEntry(AddConsoleEntry event, Emitter<ProvisionerState> emit) {
     final entries = List<ConsoleEntry>.from(state.consoleEntries);
-    entries.add(ConsoleEntry(text: event.text, type: event.type));
+    entries.add(ConsoleEntry(
+      text: event.text,
+      type: event.type,
+      timedOut: event.timedOut,
+    ));
 
     // Keep only last 1000 entries
     if (entries.length > 1000) {
@@ -497,6 +509,37 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     }
 
     emit(state.copyWith(consoleEntries: entries));
+  }
+
+  void _handleIncomingData(String data) {
+    _rxBuffer.write(data);
+
+    var bufferStr = _rxBuffer.toString();
+    int index = bufferStr.indexOf('\n');
+    while (index != -1) {
+      final line = bufferStr.substring(0, index).trim();
+      if (line.isNotEmpty) {
+        add(AddConsoleEntry(line, ConsoleEntryType.response));
+      }
+      bufferStr = bufferStr.substring(index + 1);
+      index = bufferStr.indexOf('\n');
+    }
+
+    _rxBuffer
+      ..clear()
+      ..write(bufferStr);
+
+    _rxTimer?.cancel();
+    if (_rxBuffer.isNotEmpty) {
+      _rxTimer = Timer(_rxTimeout, () {
+        final leftover = _rxBuffer.toString().trim();
+        _rxBuffer.clear();
+        if (leftover.isNotEmpty) {
+          add(AddConsoleEntry('$leftover {timedout}', ConsoleEntryType.response,
+              timedOut: true));
+        }
+      });
+    }
   }
 
   void _addActionResult(String action, bool success, String? message, Emitter<ProvisionerState> emit) {
@@ -520,6 +563,8 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     _dataSubscription?.cancel();
     _nodeFoundSubscription?.cancel();
     _provisioningTimer?.cancel();
+    _rxTimer?.cancel();
+    _rxBuffer.clear();
     _consoleService?.dispose();
     _serialService.dispose();
     return super.close();
