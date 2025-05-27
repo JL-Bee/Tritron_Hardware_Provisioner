@@ -24,12 +24,46 @@ class _ConsoleWidgetState extends State<ConsoleWidget> {
   final ScrollController _scrollController = ScrollController();
   final FocusNode _commandFocus = FocusNode();
 
+  // History of previously executed commands for quick recall.
+  final List<String> _history = [];
+  int _historyIndex = -1;
+
+  // List of known commands for auto completion.
+  static const List<String> _autocompleteCommands = [
+    'mesh/factory_reset',
+    'mesh/provision/scan/get',
+    'mesh/provision/provision',
+    'mesh/provision/result/get',
+    'mesh/provision/status/get',
+    'mesh/provision/last_addr/get',
+    'mesh/device/reset',
+    'mesh/device/remove',
+    'mesh/device/label/get',
+    'mesh/device/label/set',
+    'mesh/device/identify',
+    'mesh/device/list',
+    'mesh/device/sub/add',
+    'mesh/device/sub/remove',
+    'mesh/device/sub/reset',
+    'mesh/device/sub/get',
+    'mesh/dali_lc/idle_arc/set',
+    'mesh/dali_lc/idle_arc/get',
+    'mesh/dali_lc/trigger_arc/set',
+    'mesh/dali_lc/trigger_arc/get',
+    'mesh/dali_lc/hold_time/set',
+    'mesh/dali_lc/hold_time/get',
+    'mesh/radar/sensitivity/set',
+    'mesh/radar/sensitivity/get',
+  ];
+
   String _rxBuffer = '';
   Timer? _rxTimer;
 
   @override
   void initState() {
     super.initState();
+    // Prevent focus traversal so the tab key can be used for auto completion.
+    _commandFocus.skipTraversal = true;
     _listenToData();
   }
 
@@ -130,11 +164,19 @@ class _ConsoleWidgetState extends State<ConsoleWidget> {
     });
   }
 
+  /// Sends the command currently in the input field.
+  ///
+  /// The command is logged to the console, stored in the history and the focus
+  /// remains on the input so multiple commands can be issued quickly.
   void _sendCommand() {
     final command = _commandController.text.trim();
     if (command.isEmpty) return;
 
     _commandController.clear();
+
+    // Store command in history for recall.
+    _history.add(command);
+    _historyIndex = _history.length;
 
     // Add command to console
     _addEntry(ConsoleEntry(
@@ -145,6 +187,9 @@ class _ConsoleWidgetState extends State<ConsoleWidget> {
 
     // Send command
     widget.onCommand(command);
+
+    // Keep focus on the input so the next command can be typed immediately.
+    _commandFocus.requestFocus();
   }
 
   void _copyToClipboard() {
@@ -163,6 +208,63 @@ class _ConsoleWidgetState extends State<ConsoleWidget> {
     setState(() {
       _entries.clear();
     });
+  }
+
+  /// Handles keyboard events for the command input.
+  KeyEventResult _handleKey(FocusNode node, RawKeyEvent event) {
+    if (event is! RawKeyDownEvent) {
+      return KeyEventResult.ignored;
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      if (_history.isEmpty) {
+        return KeyEventResult.handled;
+      }
+      setState(() {
+        if (_historyIndex > 0) {
+          _historyIndex--;
+        } else {
+          _historyIndex = 0;
+        }
+        _commandController.text = _history[_historyIndex];
+        _commandController.selection = TextSelection.collapsed(
+          offset: _commandController.text.length,
+        );
+      });
+      return KeyEventResult.handled;
+    } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      if (_history.isEmpty) {
+        return KeyEventResult.handled;
+      }
+      setState(() {
+        if (_historyIndex < _history.length - 1) {
+          _historyIndex++;
+          _commandController.text = _history[_historyIndex];
+          _commandController.selection = TextSelection.collapsed(
+            offset: _commandController.text.length,
+          );
+        } else {
+          _historyIndex = _history.length;
+          _commandController.clear();
+        }
+      });
+      return KeyEventResult.handled;
+    } else if (event.logicalKey == LogicalKeyboardKey.tab) {
+      final current = _commandController.text;
+      final match = _autocompleteCommands.firstWhere(
+        (cmd) => cmd.startsWith(current),
+        orElse: () => current,
+      );
+      setState(() {
+        _commandController.text = match;
+        _commandController.selection = TextSelection.collapsed(
+          offset: match.length,
+        );
+      });
+      return KeyEventResult.handled;
+    }
+
+    return KeyEventResult.ignored;
   }
 
   @override
@@ -236,16 +338,20 @@ class _ConsoleWidgetState extends State<ConsoleWidget> {
               const Icon(Icons.chevron_right, color: Colors.grey),
               const SizedBox(width: 8),
               Expanded(
-                child: TextField(
-                  controller: _commandController,
+                child: Focus(
                   focusNode: _commandFocus,
-                  style: const TextStyle(fontFamily: 'monospace'),
-                  decoration: const InputDecoration(
-                    hintText: 'Enter command (e.g., mesh/device/list)',
-                    border: InputBorder.none,
-                    isDense: true,
+                  onKey: _handleKey,
+                  child: TextField(
+                    controller: _commandController,
+                    focusNode: _commandFocus,
+                    style: const TextStyle(fontFamily: 'monospace'),
+                    decoration: const InputDecoration(
+                      hintText: 'Enter command (e.g., mesh/device/list)',
+                      border: InputBorder.none,
+                      isDense: true,
+                    ),
+                    onSubmitted: (_) => _sendCommand(),
                   ),
-                  onSubmitted: (_) => _sendCommand(),
                 ),
               ),
               const SizedBox(width: 8),
