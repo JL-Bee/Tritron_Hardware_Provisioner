@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../blocs/provisioner_bloc.dart';
-import '../services/rtm_console_service.dart';
 
 class BlocConsoleWidget extends StatefulWidget {
   const BlocConsoleWidget({super.key});
@@ -32,11 +31,8 @@ class _BlocConsoleWidgetState extends State<BlocConsoleWidget> {
 
     _commandController.clear();
 
-    // TODO: Actually send command through console service
-    // For now, this is just for UI demonstration
-    context
-        .read<ProvisionerBloc>()
-        .add(AddConsoleEntry(command, ConsoleEntryType.command));
+    // Dispatch the command to the provisioner BLoC.
+    context.read<ProvisionerBloc>().add(SendConsoleCommand(command));
   }
 
   void _copyToClipboard(List<ConsoleEntry> entries) {
