@@ -422,13 +422,10 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                   children: [
                     OutlinedButton(
                       onPressed: () {
-                        // TODO: Implement identify functionality
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Identify not yet implemented'),
-                            duration: Duration(seconds: 1),
-                          ),
-                        );
+                        context
+                            .read<provisioner.ProvisionerBloc>()
+                            .add(provisioner.SendConsoleCommand(
+                                'mesh/device/identify $uuid'));
                       },
                       child: const Text('Identify'),
                     ),

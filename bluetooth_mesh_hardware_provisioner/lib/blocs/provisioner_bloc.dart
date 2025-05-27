@@ -70,6 +70,15 @@ class NodeDiscovered extends ProvisionerEvent {
   NodeDiscovered(this.uuid);
 }
 
+/// Event to send an arbitrary command to the RTM console.
+class SendConsoleCommand extends ProvisionerEvent {
+  /// The raw command string to execute.
+  final String command;
+
+  /// Creates a [SendConsoleCommand] with the provided [command].
+  SendConsoleCommand(this.command);
+}
+
 // States
 class ProvisionerState {
   final ConnectionStatus connectionStatus;
@@ -263,9 +272,8 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     on<SelectDevice>(_onSelectDevice);
     on<ClearError>(_onClearError);
     on<AddConsoleEntry>(_onAddConsoleEntry);
-
-    on<NodeDiscovered>(_onNodeDiscovered);
-
+  on<NodeDiscovered>(_onNodeDiscovered);
+    on<SendConsoleCommand>(_onSendConsoleCommand);
   }
 
   Future<void> _onConnectToPort(ConnectToPort event, Emitter<ProvisionerState> emit) async {
@@ -654,6 +662,22 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     _rxBuffer
       ..clear()
       ..write(bufferStr);
+  }
+
+  Future<void> _onSendConsoleCommand(
+      SendConsoleCommand event, Emitter<ProvisionerState> emit) async {
+    if (_consoleService == null) return;
+
+    try {
+      await _consoleService!.execute(event.command);
+    } catch (e) {
+      emit(state.copyWith(
+        currentError: AppError(
+          message: 'Command failed: $e',
+          severity: ErrorSeverity.warning,
+        ),
+      ));
+    }
   }
 
   void _addActionResult(String action, bool success, String? message, Emitter<ProvisionerState> emit) {
