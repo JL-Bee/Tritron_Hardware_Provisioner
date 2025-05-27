@@ -291,20 +291,11 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
         }
       });
 
-      // Listen to processed lines for console display
+      // Forward processed lines to the bloc as events so state updates happen
+      // within an event handler. This avoids calling `emit` after this handler
+      // has completed, which would trigger a BLoC assertion.
       _processedLineSubscription = _processor!.lineStream.listen((line) {
-        final entries = List<ConsoleEntry>.from(state.consoleEntries);
-        entries.add(ConsoleEntry(
-          text: line.raw,
-          type: _getConsoleEntryType(line.type),
-        ));
-
-        // Keep only last 1000 entries
-        if (entries.length > 1000) {
-          entries.removeRange(0, entries.length - 1000);
-        }
-
-        emit(state.copyWith(consoleEntries: entries));
+        add(_ProcessedLineReceived(line));
       });
 
       // Listen for node discoveries
