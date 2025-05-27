@@ -96,6 +96,7 @@ class SerialPortService {
         (data) {
           // Convert bytes to string and emit
           final text = String.fromCharCodes(data);
+          print('SerialPort: Received ${data.length} bytes: ${text.replaceAll('\n', '\\n').replaceAll('\r', '\\r')}');
           _dataController?.add(text);
         },
         onError: (error) {

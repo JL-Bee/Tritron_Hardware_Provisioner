@@ -7,7 +7,6 @@ import '../models/mesh_device.dart';
 import '../services/serial_port_service.dart';
 import '../services/command_processor.dart';
 import '../services/mesh_command_service.dart';
-import '../protocols/rtm_console_protocol.dart';
 
 // Events
 abstract class ProvisionerEvent {}
@@ -60,6 +59,12 @@ class SendConsoleCommand extends ProvisionerEvent {
 class NodeDiscovered extends ProvisionerEvent {
   final String uuid;
   NodeDiscovered(this.uuid);
+}
+
+// Internal event for processed lines
+class _ProcessedLineReceived extends ProvisionerEvent {
+  final ProcessedLine line;
+  _ProcessedLineReceived(this.line);
 }
 
 // States
@@ -259,6 +264,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     on<ClearError>(_onClearError);
     on<NodeDiscovered>(_onNodeDiscovered);
     on<SendConsoleCommand>(_onSendConsoleCommand);
+    on<_ProcessedLineReceived>(_onProcessedLineReceived);
   }
 
   Future<void> _onConnectToPort(ConnectToPort event, Emitter<ProvisionerState> emit) async {
@@ -609,6 +615,32 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
   void _onNodeDiscovered(NodeDiscovered event, Emitter<ProvisionerState> emit) {
     final updated = Set<String>.from(state.foundUuids)..add(event.uuid);
     emit(state.copyWith(foundUuids: updated));
+  }
+
+  void _onProcessedLineReceived(_ProcessedLineReceived event, Emitter<ProvisionerState> emit) {
+    final entries = List<ConsoleEntry>.from(state.consoleEntries);
+    entries.add(ConsoleEntry(
+      text: event.line.raw,
+      type: _getConsoleEntryType(event.line.type),
+    ));
+
+    // Update current action log if active
+    ActionExecution? current = state.currentAction;
+    if (current != null) {
+      final log = List<ConsoleEntry>.from(current.log)
+        ..add(ConsoleEntry(
+          text: event.line.raw,
+          type: _getConsoleEntryType(event.line.type),
+        ));
+      current = current.copyWith(log: log);
+    }
+
+    // Keep only last 1000 entries
+    if (entries.length > 1000) {
+      entries.removeRange(0, entries.length - 1000);
+    }
+
+    emit(state.copyWith(consoleEntries: entries, currentAction: current));
   }
 
   Future<void> _onSendConsoleCommand(SendConsoleCommand event, Emitter<ProvisionerState> emit) async {

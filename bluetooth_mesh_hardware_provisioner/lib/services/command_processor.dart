@@ -19,6 +19,9 @@ class CommandProcessor {
 
   void _startProcessing() {
     _dataSubscription = _dataStream.listen((data) {
+      // Debug: Print raw data
+      print('CommandProcessor: Received data: ${data.replaceAll('\n', '\\n').replaceAll('\r', '\\r')}');
+
       _lineBuffer.write(data);
       _processBuffer();
     });
@@ -119,6 +122,7 @@ class CommandProcessor {
   }
 
   void dispose() {
+    _lineTimer?.cancel();
     _dataSubscription?.cancel();
     _lineController.close();
   }
