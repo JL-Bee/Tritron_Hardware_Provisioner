@@ -54,7 +54,9 @@ class _BlocConsoleWidgetState extends State<BlocConsoleWidget> {
   void initState() {
     super.initState();
     // Prevent focus traversal so the tab key can be used for auto completion.
-    _commandFocus.skipTraversal = true;
+    _commandFocus
+      ..skipTraversal = true
+      ..onKey = _handleKey;
   }
 
   @override
@@ -248,20 +250,16 @@ class _BlocConsoleWidgetState extends State<BlocConsoleWidget> {
                   const Icon(Icons.chevron_right, color: Colors.grey),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Focus(
+                    child: TextField(
+                      controller: _commandController,
                       focusNode: _commandFocus,
-                      onKey: _handleKey,
-                      child: TextField(
-                        controller: _commandController,
-                        focusNode: _commandFocus,
-                        style: const TextStyle(fontFamily: 'monospace'),
-                        decoration: const InputDecoration(
-                          hintText: 'Enter command (e.g., mesh/device/list)',
-                          border: InputBorder.none,
-                          isDense: true,
-                        ),
-                        onSubmitted: (_) => _sendCommand(),
+                      style: const TextStyle(fontFamily: 'monospace'),
+                      decoration: const InputDecoration(
+                        hintText: 'Enter command (e.g., mesh/device/list)',
+                        border: InputBorder.none,
+                        isDense: true,
                       ),
+                      onSubmitted: (_) => _sendCommand(),
                     ),
                   ),
                   const SizedBox(width: 8),
