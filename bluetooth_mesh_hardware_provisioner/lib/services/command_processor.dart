@@ -122,7 +122,6 @@ class CommandProcessor {
   }
 
   void dispose() {
-    _lineTimer?.cancel();
     _dataSubscription?.cancel();
     _lineController.close();
   }
