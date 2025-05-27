@@ -130,18 +130,18 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                   if (value == 'factory_reset') {
                     final confirm = await showDialog<bool>(
                       context: context,
-                      builder: (context) => AlertDialog(
+                      builder: (dialogContext) => AlertDialog(
                         title: const Text('Factory Reset'),
                         content: const Text(
                           'This will clear all provisioned devices from the provisioner\'s database. Continue?',
                         ),
                         actions: [
                           TextButton(
-                            onPressed: () => Navigator.pop(context, false),
+                            onPressed: () => Navigator.pop(dialogContext, false),
                             child: const Text('Cancel'),
                           ),
                           FilledButton(
-                            onPressed: () => Navigator.pop(context, true),
+                            onPressed: () => Navigator.pop(dialogContext, true),
                             style: FilledButton.styleFrom(backgroundColor: Colors.red),
                             child: const Text('Reset'),
                           ),
@@ -206,7 +206,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           else if (state.currentError != null)
-                            Icon(Icons.error, color: Colors.red, size: 16)
+                            const Icon(Icons.error, color: Colors.red, size: 16)
                           else if (hasRecentActivity && latestAction != null)
                             Icon(
                               latestAction.success ? Icons.check_circle : Icons.cancel,
@@ -692,21 +692,21 @@ class _BlocMainScreenState extends State<BlocMainScreen>
   Future<void> _confirmUnprovision(BuildContext context, MeshDevice device) async {
     final action = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Device Actions'),
         content: Text('Select action for device ${device.addressHex}:'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, 'reset'),
+            onPressed: () => Navigator.pop(dialogContext, 'reset'),
             style: FilledButton.styleFrom(backgroundColor: Colors.orange),
             child: const Text('Reset Device'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, 'remove'),
+            onPressed: () => Navigator.pop(dialogContext, 'remove'),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Remove from DB'),
           ),
@@ -736,7 +736,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
     final controller = TextEditingController();
     final groupAddr = await showDialog<int>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Add Group Subscription'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -759,7 +759,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           FilledButton(
@@ -768,7 +768,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
               if (hex.length == 4) {
                 final addr = int.tryParse(hex, radix: 16);
                 if (addr != null && addr >= 0xC000 && addr <= 0xFEFF) {
-                  Navigator.pop(context, addr);
+                  Navigator.pop(dialogContext, addr);
                 }
               }
             },

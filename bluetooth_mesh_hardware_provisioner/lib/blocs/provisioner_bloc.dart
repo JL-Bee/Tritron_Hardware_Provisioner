@@ -4,7 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:async';
 import '../models/serial_port_info.dart';
 import '../services/serial_port_service.dart';
-import '../services/rtm_console_service.dart' as console_service;
+import '../services/command_processor.dart';
+import '../services/mesh_command_service.dart';
 import '../protocols/rtm_console_protocol.dart';
 
 // Events
@@ -50,33 +51,14 @@ class SelectDevice extends ProvisionerEvent {
 
 class ClearError extends ProvisionerEvent {}
 
-class AddConsoleEntry extends ProvisionerEvent {
-  final String text;
-  final ConsoleEntryType type;
-  final bool timedOut;
-
-  AddConsoleEntry(this.text, this.type, {this.timedOut = false});
-}
-
-/// Event triggered when a new unprovisioned node is discovered.
-///
-/// Carries the UUID string of the detected node so that the BLoC can
-/// update the list of found nodes.
-class NodeDiscovered extends ProvisionerEvent {
-  /// UUID of the newly discovered node.
-  final String uuid;
-
-  /// Creates a [NodeDiscovered] event carrying the discovered node [uuid].
-  NodeDiscovered(this.uuid);
-}
-
-/// Event to send an arbitrary command to the RTM console.
 class SendConsoleCommand extends ProvisionerEvent {
-  /// The raw command string to execute.
   final String command;
-
-  /// Creates a [SendConsoleCommand] with the provided [command].
   SendConsoleCommand(this.command);
+}
+
+class NodeDiscovered extends ProvisionerEvent {
+  final String uuid;
+  NodeDiscovered(this.uuid);
 }
 
 // States
@@ -223,8 +205,8 @@ class ActionResult {
     return ActionResult(
       action: action,
       success: success ?? this.success,
-      message: message ?? message,
-      log: log ?? log,
+      message: message ?? this.message,
+      log: log ?? this.log,
       timestamp: timestamp,
     );
   }
@@ -246,7 +228,7 @@ class ActionExecution {
     return ActionExecution(
       action: action,
       log: log ?? this.log,
-      timestamp: this.timestamp,
+      timestamp: timestamp,
     );
   }
 }
@@ -254,11 +236,14 @@ class ActionExecution {
 // BLoC Implementation
 class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
   final SerialPortService _serialService = SerialPortService();
-  console_service.RTMConsoleService? _consoleService;
-  StreamSubscription? _dataSubscription;
+  CommandProcessor? _processor;
+  MeshCommandService? _meshService;
+
+  StreamSubscription? _serialStatusSubscription;
+  StreamSubscription? _processedLineSubscription;
   StreamSubscription? _nodeFoundSubscription;
+
   Timer? _provisioningTimer;
-  final StringBuffer _rxBuffer = StringBuffer();
 
   ProvisionerBloc() : super(ProvisionerState()) {
     on<ConnectToPort>(_onConnectToPort);
@@ -271,8 +256,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     on<RemoveSubscription>(_onRemoveSubscription);
     on<SelectDevice>(_onSelectDevice);
     on<ClearError>(_onClearError);
-    on<AddConsoleEntry>(_onAddConsoleEntry);
-  on<NodeDiscovered>(_onNodeDiscovered);
+    on<NodeDiscovered>(_onNodeDiscovered);
     on<SendConsoleCommand>(_onSendConsoleCommand);
   }
 
@@ -280,23 +264,44 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     emit(state.copyWith(connectionStatus: ConnectionStatus.connecting));
 
     try {
+      // Connect to serial port
       await _serialService.connect(event.port.portName);
 
-      _consoleService = console_service.RTMConsoleService(
-        sendCommand: (cmd) async {
-          await _serialService.sendCommand(cmd);
-          add(AddConsoleEntry(cmd.trim(), ConsoleEntryType.command));
-        },
-        dataStream: _serialService.dataStream,
+      // Set up command processor
+      _processor = CommandProcessor(_serialService.dataStream);
+
+      // Set up mesh command service
+      _meshService = MeshCommandService(
+        sendData: _serialService.sendData,
+        processor: _processor!,
       );
 
-      // Listen to raw data for console
-      _dataSubscription =
-          _serialService.dataStream.listen(_handleIncomingData);
+      // Listen to serial connection status
+      _serialStatusSubscription = _serialService.statusStream.listen((status) {
+        if (status == SerialConnectionStatus.disconnected ||
+            status == SerialConnectionStatus.error) {
+          add(Disconnect());
+        }
+      });
 
-      // Listen for new nodes
-      _nodeFoundSubscription =
-          _consoleService!.nodeFoundStream.listen((uuid) {
+      // Listen to processed lines for console display
+      _processedLineSubscription = _processor!.lineStream.listen((line) {
+        final entries = List<ConsoleEntry>.from(state.consoleEntries);
+        entries.add(ConsoleEntry(
+          text: line.raw,
+          type: _getConsoleEntryType(line.type),
+        ));
+
+        // Keep only last 1000 entries
+        if (entries.length > 1000) {
+          entries.removeRange(0, entries.length - 1000);
+        }
+
+        emit(state.copyWith(consoleEntries: entries));
+      });
+
+      // Listen for node discoveries
+      _nodeFoundSubscription = _meshService!.nodeFoundStream.listen((uuid) {
         add(NodeDiscovered(uuid));
       });
 
@@ -321,18 +326,20 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
   }
 
   Future<void> _onDisconnect(Disconnect event, Emitter<ProvisionerState> emit) async {
-    _dataSubscription?.cancel();
+    _serialStatusSubscription?.cancel();
+    _processedLineSubscription?.cancel();
     _nodeFoundSubscription?.cancel();
     _provisioningTimer?.cancel();
-    _rxBuffer.clear();
-    _consoleService?.dispose();
+
+    _meshService?.dispose();
+    _processor?.dispose();
     await _serialService.disconnect();
 
     emit(ProvisionerState());
   }
 
   Future<void> _onScanDevices(ScanDevices event, Emitter<ProvisionerState> emit) async {
-    if (state.connectionStatus != ConnectionStatus.connected || _consoleService == null) return;
+    if (state.connectionStatus != ConnectionStatus.connected || _meshService == null) return;
 
     emit(state.copyWith(
       isScanning: true,
@@ -340,7 +347,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     ));
 
     try {
-      final uuids = await _consoleService!.scanDevices();
+      final uuids = await _meshService!.scanForDevices();
       final updatedUuids = Set<String>.from(state.foundUuids)..addAll(uuids);
 
       emit(state.copyWith(
@@ -359,10 +366,10 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
   }
 
   Future<void> _onRefreshDeviceList(RefreshDeviceList event, Emitter<ProvisionerState> emit) async {
-    if (_consoleService == null) return;
+    if (_meshService == null) return;
 
     try {
-      final devices = await _consoleService!.listDevices();
+      final devices = await _meshService!.getProvisionedDevices();
       emit(state.copyWith(provisionedDevices: devices));
     } catch (e) {
       emit(state.copyWith(
@@ -372,7 +379,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
   }
 
   Future<void> _onProvisionDevice(ProvisionDevice event, Emitter<ProvisionerState> emit) async {
-    if (state.isProvisioning || _consoleService == null) return;
+    if (state.isProvisioning || _meshService == null) return;
 
     emit(state.copyWith(
       isProvisioning: true,
@@ -382,11 +389,11 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     ));
 
     try {
-      final success = await _consoleService!.provisionDevice(event.uuid);
+      final success = await _meshService!.provisionDevice(event.uuid);
 
       if (!success) {
         // Check if device is already provisioned
-        final devices = await _consoleService!.listDevices();
+        final devices = await _meshService!.getProvisionedDevices();
         final isAlreadyProvisioned = devices.any((d) => d.uuid == event.uuid);
 
         if (isAlreadyProvisioned) {
@@ -411,19 +418,20 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
         return;
       }
 
+      // Poll for provisioning status
       _provisioningTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
         if (!state.isProvisioning) {
           timer.cancel();
           return;
         }
 
-        final status = await _consoleService!.getProvisionStatus();
+        final status = await _meshService!.getProvisioningStatus();
         emit(state.copyWith(provisioningStatus: status));
 
         if (status.contains('completed') || status.contains('failed') || status.contains('timeout')) {
           timer.cancel();
 
-          final result = await _consoleService!.getProvisionResult();
+          final result = await _meshService!.getProvisioningResult();
           if (result == 0) {
             final updatedUuids = Set<String>.from(state.foundUuids)..remove(event.uuid);
             emit(state.copyWith(
@@ -455,7 +463,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
   }
 
   Future<void> _onUnprovisionDevice(UnprovisionDevice event, Emitter<ProvisionerState> emit) async {
-    if (_consoleService == null) return;
+    if (_meshService == null) return;
 
     emit(state.copyWith(
       currentAction: ActionExecution(
@@ -464,7 +472,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     ));
 
     try {
-      final success = await _consoleService!.resetDevice(event.device.address);
+      final success = await _meshService!.resetDevice(event.device.address);
       if (success) {
         add(RefreshDeviceList());
         if (state.selectedDevice?.address == event.device.address) {
@@ -486,7 +494,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
   }
 
   Future<void> _onAddSubscription(AddSubscription event, Emitter<ProvisionerState> emit) async {
-    if (_consoleService == null) return;
+    if (_meshService == null) return;
 
     emit(state.copyWith(
       currentAction: ActionExecution(
@@ -495,7 +503,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     ));
 
     try {
-      final success = await _consoleService!.addSubscribe(event.nodeAddress, event.groupAddress);
+      final success = await _meshService!.addSubscription(event.nodeAddress, event.groupAddress);
       if (success && state.selectedDevice?.address == event.nodeAddress) {
         await _loadDeviceSubscriptions(event.nodeAddress, emit);
         _addActionResult(
@@ -529,7 +537,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
   }
 
   Future<void> _onRemoveSubscription(RemoveSubscription event, Emitter<ProvisionerState> emit) async {
-    if (_consoleService == null) return;
+    if (_meshService == null) return;
 
     emit(state.copyWith(
       currentAction: ActionExecution(
@@ -538,7 +546,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     ));
 
     try {
-      final success = await _consoleService!.removeSubscribe(event.nodeAddress, event.groupAddress);
+      final success = await _meshService!.removeSubscription(event.nodeAddress, event.groupAddress);
       if (success && state.selectedDevice?.address == event.nodeAddress) {
         await _loadDeviceSubscriptions(event.nodeAddress, emit);
         _addActionResult(
@@ -574,14 +582,14 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
   Future<void> _onSelectDevice(SelectDevice event, Emitter<ProvisionerState> emit) async {
     emit(state.copyWith(selectedDevice: event.device));
 
-    if (event.device != null && _consoleService != null) {
+    if (event.device != null && _meshService != null) {
       await _loadDeviceSubscriptions(event.device!.address, emit);
     }
   }
 
   Future<void> _loadDeviceSubscriptions(int address, Emitter<ProvisionerState> emit) async {
     try {
-      final subscriptions = await _consoleService!.getSubscribeAddresses(address);
+      final subscriptions = await _meshService!.getSubscriptions(address);
       emit(state.copyWith(selectedDeviceSubscriptions: subscriptions));
     } catch (e) {
       emit(state.copyWith(
@@ -597,64 +605,30 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     emit(state.copyWith(clearError: true));
   }
 
-  void _onAddConsoleEntry(AddConsoleEntry event, Emitter<ProvisionerState> emit) {
+  void _onNodeDiscovered(NodeDiscovered event, Emitter<ProvisionerState> emit) {
+    final updated = Set<String>.from(state.foundUuids)..add(event.uuid);
+    emit(state.copyWith(foundUuids: updated));
+  }
+
+  Future<void> _onSendConsoleCommand(SendConsoleCommand event, Emitter<ProvisionerState> emit) async {
+    if (_meshService == null) return;
+
+    // Add command to console
     final entries = List<ConsoleEntry>.from(state.consoleEntries);
     entries.add(ConsoleEntry(
-      text: event.text,
-      type: event.type,
-      timedOut: event.timedOut,
+      text: event.command,
+      type: ConsoleEntryType.command,
     ));
-
-    ActionExecution? current = state.currentAction;
-    if (current != null) {
-      final log = List<ConsoleEntry>.from(current.log)
-        ..add(ConsoleEntry(
-          text: event.text,
-          type: event.type,
-          timedOut: event.timedOut,
-        ));
-      current = current.copyWith(log: log);
-    }
 
     // Keep only last 1000 entries
     if (entries.length > 1000) {
       entries.removeRange(0, entries.length - 1000);
     }
 
-    emit(state.copyWith(consoleEntries: entries, currentAction: current));
-  }
-
-  /// Updates the list of discovered node UUIDs when a new node is found.
-  void _onNodeDiscovered(NodeDiscovered event, Emitter<ProvisionerState> emit) {
-    final updated = Set<String>.from(state.foundUuids)..add(event.uuid);
-    emit(state.copyWith(foundUuids: updated));
-  }
-
-  void _handleIncomingData(String data) {
-    _rxBuffer.write(data);
-
-    var bufferStr = _rxBuffer.toString();
-    int index = bufferStr.indexOf('\n');
-    while (index != -1) {
-      final line = bufferStr.substring(0, index).trim();
-      if (line.isNotEmpty) {
-        add(AddConsoleEntry(line, ConsoleEntryType.response));
-      }
-      bufferStr = bufferStr.substring(index + 1);
-      index = bufferStr.indexOf('\n');
-    }
-
-    _rxBuffer
-      ..clear()
-      ..write(bufferStr);
-  }
-
-  Future<void> _onSendConsoleCommand(
-      SendConsoleCommand event, Emitter<ProvisionerState> emit) async {
-    if (_consoleService == null) return;
+    emit(state.copyWith(consoleEntries: entries));
 
     try {
-      await _consoleService!.execute(event.command);
+      await _meshService!.executeCommand(event.command);
     } catch (e) {
       emit(state.copyWith(
         currentError: AppError(
@@ -662,6 +636,19 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
           severity: ErrorSeverity.warning,
         ),
       ));
+    }
+  }
+
+  ConsoleEntryType _getConsoleEntryType(LineType lineType) {
+    switch (lineType) {
+      case LineType.error:
+        return ConsoleEntryType.error;
+      case LineType.warning:
+      case LineType.info:
+      case LineType.nodeFound:
+        return ConsoleEntryType.info;
+      default:
+        return ConsoleEntryType.response;
     }
   }
 
@@ -673,7 +660,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
       success: success,
       message: message,
       log: current?.log ?? [],
-      timestamp: current?.timestamp,
+      timestamp: current?.timestamp ?? DateTime.now(),
     ));
 
     // Keep only last 100 actions
@@ -686,12 +673,15 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
 
   @override
   Future<void> close() {
-    _dataSubscription?.cancel();
+    _serialStatusSubscription?.cancel();
+    _processedLineSubscription?.cancel();
     _nodeFoundSubscription?.cancel();
     _provisioningTimer?.cancel();
-    _rxBuffer.clear();
-    _consoleService?.dispose();
+
+    _meshService?.dispose();
+    _processor?.dispose();
     _serialService.dispose();
+
     return super.close();
   }
 }

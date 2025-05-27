@@ -5,27 +5,31 @@ import 'dart:typed_data';
 import 'package:flutter_libserialport/flutter_libserialport.dart';
 import '../models/serial_port_info.dart';
 
+/// Simplified serial port service that handles raw communication only
 class SerialPortService {
   SerialPort? _port;
   SerialPortReader? _reader;
   StreamController<String>? _dataController;
-  StreamController<ConnectionStatus>? _statusController;
+  StreamController<SerialConnectionStatus>? _statusController;
 
-  // Configuration for NRF52 DK communication
-  static const int defaultBaudRate = 115200;
-  static const int dataBits = 8;
-  static const int stopBits = 1;
-
+  // Public streams
   Stream<String> get dataStream => _dataController?.stream ?? const Stream.empty();
-  Stream<ConnectionStatus> get statusStream => _statusController?.stream ?? const Stream.empty();
+  Stream<SerialConnectionStatus> get statusStream => _statusController?.stream ?? const Stream.empty();
 
+  // Connection state
   bool get isConnected => _port != null && _port!.isOpen;
   String? get connectedPortName => _port?.name;
 
+  // NRF52 configuration
+  static const int defaultBaudRate = 115200;
+  static const int readTimeout = 100; // ms
+
   SerialPortService() {
-    _statusController = StreamController<ConnectionStatus>.broadcast();
+    _dataController = StreamController<String>.broadcast();
+    _statusController = StreamController<SerialConnectionStatus>.broadcast();
   }
 
+  /// Scan for available serial ports
   Future<List<SerialPortInfo>> scanForPorts() async {
     final ports = <SerialPortInfo>[];
 
@@ -49,7 +53,7 @@ class SerialPortService {
       }
     }
 
-    // Sort ports to prioritize NRF52 devices
+    // Sort to prioritize NRF52 devices
     ports.sort((a, b) {
       if (a.isNRF52Device && !b.isNRF52Device) return -1;
       if (!a.isNRF52Device && b.isNRF52Device) return 1;
@@ -59,113 +63,146 @@ class SerialPortService {
     return ports;
   }
 
+  /// Connect to a serial port
   Future<void> connect(String portName, {int baudRate = defaultBaudRate}) async {
     try {
-      // Disconnect from any existing connection
+      // Clean up any existing connection
       await disconnect();
 
-      _statusController?.add(ConnectionStatus.connecting);
+      _statusController?.add(SerialConnectionStatus.connecting);
 
+      // Open the port
       _port = SerialPort(portName);
 
       if (!_port!.openReadWrite()) {
         throw SerialPortException('Failed to open port $portName');
       }
 
-      // Configure port settings for NRF52 DK
+      // Configure the port
       final config = SerialPortConfig()
         ..baudRate = baudRate
-        ..bits = dataBits
-        ..stopBits = stopBits
+        ..bits = 8
+        ..stopBits = 1
         ..parity = SerialPortParity.none
         ..setFlowControl(SerialPortFlowControl.none);
 
       _port!.config = config;
 
-      // Set up data reader
-      _reader = SerialPortReader(_port!);
-      _dataController = StreamController<String>.broadcast();
+      // Set up the reader with a timeout
+      _reader = SerialPortReader(_port!, timeout: readTimeout);
 
-      // Listen for incoming data
+      // Start listening to incoming data
       _reader!.stream.listen(
         (data) {
+          // Convert bytes to string and emit
           final text = String.fromCharCodes(data);
           _dataController?.add(text);
         },
         onError: (error) {
-          print('Serial port read error: $error');
-          _statusController?.add(ConnectionStatus.error);
-          disconnect();
+          print('Serial read error: $error');
+          _statusController?.add(SerialConnectionStatus.error);
+          // Don't disconnect on read errors - let the user decide
         },
         onDone: () {
-          print('Serial port reader done');
-          _statusController?.add(ConnectionStatus.disconnected);
+          print('Serial port closed');
+          _statusController?.add(SerialConnectionStatus.disconnected);
           disconnect();
         },
+        cancelOnError: false, // Keep listening even on errors
       );
 
-      _statusController?.add(ConnectionStatus.connected);
+      _statusController?.add(SerialConnectionStatus.connected);
 
-      // Send initial handshake or identification command
-      await sendCommand('AT\r\n'); // Common AT command for testing
     } catch (e) {
-      _statusController?.add(ConnectionStatus.error);
+      _statusController?.add(SerialConnectionStatus.error);
       await disconnect();
       rethrow;
     }
   }
 
-  Future<void> sendCommand(String command) async {
-    if (_port == null || !_port!.isOpen) {
+  /// Send data to the serial port
+  Future<void> sendData(String data) async {
+    if (!isConnected) {
       throw SerialPortException('Port is not connected');
     }
 
-    final data = Uint8List.fromList(command.codeUnits);
-    final bytesWritten = _port!.write(data);
+    try {
+      final bytes = Uint8List.fromList(data.codeUnits);
+      final written = _port!.write(bytes);
 
-    if (bytesWritten != data.length) {
-      throw SerialPortException('Failed to write all bytes');
+      if (written != bytes.length) {
+        throw SerialPortException('Failed to write all bytes: $written/${bytes.length}');
+      }
+
+      // Ensure data is flushed
+      _port!.drain();
+
+    } catch (e) {
+      print('Error sending data: $e');
+      rethrow;
     }
   }
 
-  Future<void> sendBytes(Uint8List data) async {
-    if (_port == null || !_port!.isOpen) {
+  /// Send raw bytes to the serial port
+  Future<void> sendBytes(Uint8List bytes) async {
+    if (!isConnected) {
       throw SerialPortException('Port is not connected');
     }
 
-    final bytesWritten = _port!.write(data);
+    try {
+      final written = _port!.write(bytes);
 
-    if (bytesWritten != data.length) {
-      throw SerialPortException('Failed to write all bytes');
+      if (written != bytes.length) {
+        throw SerialPortException('Failed to write all bytes: $written/${bytes.length}');
+      }
+
+      // Ensure data is flushed
+      _port!.drain();
+
+    } catch (e) {
+      print('Error sending bytes: $e');
+      rethrow;
     }
   }
 
+  /// Disconnect from the serial port
   Future<void> disconnect() async {
-    _reader?.close();
-    _dataController?.close();
-    _port?.close();
-    _port?.dispose();
+    try {
+      // Close reader first
+      _reader?.close();
+      _reader = null;
 
-    _reader = null;
-    _dataController = null;
-    _port = null;
+      // Close and dispose port
+      if (_port != null) {
+        _port!.close();
+        _port!.dispose();
+        _port = null;
+      }
 
-    _statusController?.add(ConnectionStatus.disconnected);
+      _statusController?.add(SerialConnectionStatus.disconnected);
+
+    } catch (e) {
+      print('Error during disconnect: $e');
+    }
   }
 
+  /// Clean up resources
   void dispose() {
     disconnect();
+    _dataController?.close();
     _statusController?.close();
   }
 }
 
-enum ConnectionStatus {
+/// Connection status enum
+enum SerialConnectionStatus {
   disconnected,
   connecting,
   connected,
   error,
 }
 
+/// Serial port exception
 class SerialPortException implements Exception {
   final String message;
 

@@ -1,194 +1,244 @@
-// lib/protocols/rtm_console_protocol.dart
+// lib/protocols/rtm_protocol_v2.dart
 
 import 'dart:async';
+import 'dart:typed_data';
+import 'dart:convert';
 
-/// RTM Console protocol handler for the NRF52 provisioner
-class RTMConsoleProtocol {
-  static const String responsePrefix = '~>';
-  static const String okSuffix = '~>\$ok';
-  static const String terminator = '\r\n';
+/// RTM Console Protocol Handler V2
+/// Handles command/response cycles with proper queuing and timeouts
+class RTMProtocolV2 {
+  final Future<void> Function(String) _sendCommand;
+  final Stream<Uint8List> _dataStream;
 
-  // Mesh commands
-  static const String cmdFactoryReset = 'mesh/factory_reset';
-  static const String cmdScanGet = 'mesh/provision/scan/get';
-  static const String cmdProvision = 'mesh/provision/provision'; // + uuid
-  static const String cmdProvisionResult = 'mesh/provision/result/get';
-  static const String cmdProvisionStatus = 'mesh/provision/status/get';
-  static const String cmdLastAddr = 'mesh/provision/last_addr/get';
-  static const String cmdDeviceReset = 'mesh/device/reset'; // + addr
-  static const String cmdDeviceRemove = 'mesh/device/remove'; // + addr
-  static const String cmdDeviceList = 'mesh/device/list';
-  static const String cmdDeviceLabel = 'mesh/device/label'; // get/set + addr [label]
-  static const String cmdSubAdd = 'mesh/device/sub/add'; // + node_addr + sub_addr
-  static const String cmdSubRemove = 'mesh/device/sub/remove'; // + node_addr + sub_addr
-  static const String cmdSubReset = 'mesh/device/sub/reset'; // + node_addr
-  static const String cmdSubGet = 'mesh/device/sub/get'; // + node_addr
+  // Response handling
+  final _responseBuffer = StringBuffer();
+  final _commandQueue = <_CommandRequest>[];
+  _CommandRequest? _activeCommand;
+  Timer? _responseTimer;
+  StreamSubscription? _dataSubscription;
 
-  /// Parse a response from RTM console
-  static ConsoleResponse parseResponse(String data) {
-    // Clean up the data
-    final lines = data.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
+  // Event streams
+  final _logController = StreamController<LogEntry>.broadcast();
+  final _nodeFoundController = StreamController<String>.broadcast();
 
-    if (lines.isEmpty) {
-      return ConsoleResponse(type: ResponseType.empty);
+  Stream<LogEntry> get logStream => _logController.stream;
+  Stream<String> get nodeFoundStream => _nodeFoundController.stream;
+
+  RTMProtocolV2({
+    required Future<void> Function(String) sendCommand,
+    required Stream<Uint8List> dataStream,
+  }) : _sendCommand = sendCommand,
+       _dataStream = dataStream {
+    _startListening();
+  }
+
+  void _startListening() {
+    _dataSubscription = _dataStream.listen((data) {
+      final text = utf8.decode(data, allowMalformed: true);
+      _processIncomingData(text);
+    });
+  }
+
+  void _processIncomingData(String data) {
+    _responseBuffer.write(data);
+
+    // Process complete lines
+    final buffer = _responseBuffer.toString();
+    final lines = buffer.split('\n');
+
+    // Keep incomplete line in buffer
+    _responseBuffer.clear();
+    if (lines.isNotEmpty && !buffer.endsWith('\n')) {
+      _responseBuffer.write(lines.removeLast());
     }
 
-    // Check for async log messages (new node found)
+    // Process each complete line
     for (final line in lines) {
-      if (line.contains('New node found:')) {
-        final match = RegExp(r'New node found:\s*([0-9a-fA-F]{32})').firstMatch(line);
+      final trimmed = line.trim();
+      if (trimmed.isEmpty) continue;
+
+      // Log all received data
+      _logController.add(LogEntry(
+        text: trimmed,
+        type: LogType.rx,
+        timestamp: DateTime.now(),
+      ));
+
+      // Check for async messages
+      if (trimmed.contains('New node found:')) {
+        final match = RegExp(r'New node found:\s*([0-9a-fA-F]{32})').firstMatch(trimmed);
         if (match != null) {
-          return ConsoleResponse(
-            type: ResponseType.nodeFound,
-            data: match.group(1),
+          _nodeFoundController.add(match.group(1)!);
+        }
+      }
+
+      // Handle command responses
+      if (_activeCommand != null && trimmed.startsWith('~>')) {
+        _handleResponseLine(trimmed);
+      }
+    }
+  }
+
+  void _handleResponseLine(String line) {
+    if (_activeCommand == null) return;
+
+    _activeCommand!.responseLines.add(line);
+
+    // Reset response timer
+    _responseTimer?.cancel();
+
+    // Check if response is complete
+    if (line == '~>\$ok' || line == '~>\$error' || line == '~>\$unknown') {
+      _completeActiveCommand();
+    } else {
+      // Wait for more lines or timeout
+      _responseTimer = Timer(const Duration(milliseconds: 100), () {
+        _completeActiveCommand();
+      });
+    }
+  }
+
+  void _completeActiveCommand() {
+    if (_activeCommand == null) return;
+
+    _responseTimer?.cancel();
+
+    // Parse response
+    final response = _parseResponse(_activeCommand!.responseLines);
+    _activeCommand!.completer.complete(response);
+
+    _activeCommand = null;
+
+    // Process next command in queue
+    _processNextCommand();
+  }
+
+  CommandResponse _parseResponse(List<String> lines) {
+    if (lines.isEmpty) {
+      return CommandResponse(success: false, data: []);
+    }
+
+    bool success = false;
+    final data = <String>[];
+
+    for (final line in lines) {
+      if (line == '~>\$ok') {
+        success = true;
+      } else if (line == '~>\$error' || line == '~>\$unknown') {
+        success = false;
+      } else if (line.startsWith('~>') && line.length > 2) {
+        data.add(line.substring(2));
+      }
+    }
+
+    return CommandResponse(success: success, data: data);
+  }
+
+  void _processNextCommand() {
+    if (_activeCommand != null || _commandQueue.isEmpty) return;
+
+    _activeCommand = _commandQueue.removeAt(0);
+
+    // Send command
+    _sendCommand(_activeCommand!.command).then((_) {
+      _logController.add(LogEntry(
+        text: _activeCommand!.command.trim(),
+        type: LogType.tx,
+        timestamp: DateTime.now(),
+      ));
+
+      // Start timeout timer
+      _activeCommand!.timeoutTimer = Timer(const Duration(seconds: 5), () {
+        if (_activeCommand != null) {
+          _activeCommand!.completer.complete(
+            CommandResponse(success: false, data: [], timedOut: true)
           );
+          _activeCommand = null;
+          _processNextCommand();
         }
-      }
-    }
+      });
+    }).catchError((error) {
+      _activeCommand!.completer.completeError(error);
+      _activeCommand = null;
+      _processNextCommand();
+    });
+  }
 
-    // Parse command responses
-    final responseLines = <String>[];
-    bool isResponse = false;
-    bool hasOk = false;
-
-    for (final line in lines) {
-      if (line.startsWith(responsePrefix)) {
-        isResponse = true;
-        final content = line.substring(responsePrefix.length);
-        if (content == '\$ok') {
-          hasOk = true;
-        } else {
-          responseLines.add(content);
-        }
-      }
-    }
-
-    if (isResponse) {
-      return ConsoleResponse(
-        type: ResponseType.commandResponse,
-        data: responseLines,
-        success: hasOk,
-      );
-    }
-
-    // Return raw data if not recognized
-    return ConsoleResponse(
-      type: ResponseType.raw,
-      data: data,
+  /// Execute a command and wait for response
+  Future<CommandResponse> execute(String command) async {
+    final request = _CommandRequest(
+      command: '$command\r\n',
+      completer: Completer<CommandResponse>(),
     );
+
+    _commandQueue.add(request);
+    _processNextCommand();
+
+    return request.completer.future;
   }
 
-  /// Parse device list response
-  static List<MeshDevice> parseDeviceList(List<String> lines) {
-    final devices = <MeshDevice>[];
+  /// Send a command without waiting for response
+  Future<void> sendRaw(String command) async {
+    await _sendCommand('$command\r\n');
+    _logController.add(LogEntry(
+      text: command,
+      type: LogType.tx,
+      timestamp: DateTime.now(),
+    ));
+  }
 
-    for (final line in lines) {
-      // Format: 0x0002:0c305584745b4c09b3cfaa7b8ba483f6
-      final match = RegExp(r'0x([0-9a-fA-F]+):([0-9a-fA-F]{32})').firstMatch(line);
-      if (match != null) {
-        devices.add(MeshDevice(
-          address: int.parse(match.group(1)!, radix: 16),
-          uuid: match.group(2)!,
-        ));
-      }
+  void dispose() {
+    _responseTimer?.cancel();
+    _dataSubscription?.cancel();
+    _logController.close();
+    _nodeFoundController.close();
+
+    // Cancel all pending commands
+    if (_activeCommand != null) {
+      _activeCommand!.timeoutTimer?.cancel();
+      _activeCommand!.completer.completeError('Disposed');
     }
 
-    return devices;
-  }
-
-  /// Parse scan result
-  static List<String> parseScanResult(List<String> lines) {
-    final uuids = <String>[];
-
-    for (final line in lines) {
-      // Just UUIDs, one per line
-      if (RegExp(r'^[0-9a-fA-F]{32}$').hasMatch(line)) {
-        uuids.add(line);
-      }
+    for (final cmd in _commandQueue) {
+      cmd.completer.completeError('Disposed');
     }
-
-    return uuids;
-  }
-
-  /// Parse subscribe addresses
-  static List<int> parseSubscribeAddresses(List<String> lines) {
-    final addresses = <int>[];
-
-    for (final line in lines) {
-      // Format: 0xc003
-      if (line.startsWith('0x')) {
-        final addr = int.tryParse(line.substring(2), radix: 16);
-        if (addr != null) {
-          addresses.add(addr);
-        }
-      }
-    }
-
-    return addresses;
-  }
-
-  /// Parse provisioning result
-  static int? parseProvisionResult(List<String> lines) {
-    if (lines.isEmpty) return null;
-    return int.tryParse(lines.first);
-  }
-
-  /// Parse last address
-  static int? parseLastAddress(List<String> lines) {
-    if (lines.isEmpty) return null;
-    final line = lines.first;
-    if (line.startsWith('0x')) {
-      return int.tryParse(line.substring(2), radix: 16);
-    }
-    return int.tryParse(line);
-  }
-
-  /// Get group address for a node
-  static int getGroupAddress(int nodeAddress) {
-    return nodeAddress + 0xC000;
   }
 }
 
-/// Response types from RTM console
-enum ResponseType {
-  empty,
-  raw,
-  nodeFound,
-  commandResponse,
+class _CommandRequest {
+  final String command;
+  final Completer<CommandResponse> completer;
+  final List<String> responseLines = [];
+  Timer? timeoutTimer;
+
+  _CommandRequest({
+    required this.command,
+    required this.completer,
+  });
 }
 
-/// Console response wrapper
-class ConsoleResponse {
-  final ResponseType type;
-  final dynamic data;
+class CommandResponse {
   final bool success;
+  final List<String> data;
+  final bool timedOut;
 
-  ConsoleResponse({
+  CommandResponse({
+    required this.success,
+    required this.data,
+    this.timedOut = false,
+  });
+}
+
+class LogEntry {
+  final String text;
+  final LogType type;
+  final DateTime timestamp;
+
+  LogEntry({
+    required this.text,
     required this.type,
-    this.data,
-    this.success = false,
+    required this.timestamp,
   });
-
-  bool get isCommandResponse => type == ResponseType.commandResponse;
-  bool get isNodeFound => type == ResponseType.nodeFound;
-
-  List<String> get lines => data is List<String> ? data : [];
-  String get nodeUuid => type == ResponseType.nodeFound ? data as String : '';
 }
 
-/// Simple mesh device info
-class MeshDevice {
-  final int address;
-  final String uuid;
-  final String? label;
-
-  MeshDevice({
-    required this.address,
-    required this.uuid,
-    this.label,
-  });
-
-  String get addressHex => '0x${address.toRadixString(16).padLeft(4, '0').toUpperCase()}';
-  int get groupAddress => RTMConsoleProtocol.getGroupAddress(address);
-  String get groupAddressHex => '0x${groupAddress.toRadixString(16).padLeft(4, '0').toUpperCase()}';
-}
+enum LogType { tx, rx, info, error }
