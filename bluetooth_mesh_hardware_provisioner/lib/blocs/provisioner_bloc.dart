@@ -624,25 +624,10 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     emit(state.copyWith(consoleEntries: entries, currentAction: current));
   }
 
-<<<<<<< HEAD
-  Future<void> _onSendConsoleCommand(SendConsoleCommand event, Emitter<ProvisionerState> emit) async {
-    if (_consoleService == null) return;
-
-    try {
-      // Add command to console
-      add(AddConsoleEntry(event.command, ConsoleEntryType.command));
-
-      // Send raw command
-      await _consoleService!.sendRawCommand(event.command);
-    } catch (e) {
-      add(AddConsoleEntry('Error: $e', ConsoleEntryType.error));
-    }
-=======
   /// Updates the list of discovered node UUIDs when a new node is found.
   void _onNodeDiscovered(NodeDiscovered event, Emitter<ProvisionerState> emit) {
     final updated = Set<String>.from(state.foundUuids)..add(event.uuid);
     emit(state.copyWith(foundUuids: updated));
->>>>>>> origin/main
   }
 
   void _handleIncomingData(String data) {
