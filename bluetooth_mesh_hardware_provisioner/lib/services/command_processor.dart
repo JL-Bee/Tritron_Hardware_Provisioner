@@ -2,7 +2,11 @@
 
 import 'dart:async';
 
-/// Simple command processor that handles line-based protocols
+/// Simple command processor that handles line-based protocols.
+///
+/// Incoming data may contain ANSI escape sequences produced by the device's
+/// logging system. These sequences are stripped before further processing so
+/// higher level components receive clean text lines.
 class CommandProcessor {
   final Stream<String> _dataStream;
   final StringBuffer _lineBuffer = StringBuffer();
@@ -20,7 +24,10 @@ class CommandProcessor {
   void _startProcessing() {
     _dataSubscription = _dataStream.listen((data) {
       // Debug: Print raw data
-      print('CommandProcessor: Received data: ${data.replaceAll('\n', '\\n').replaceAll('\r', '\\r')}');
+      print(
+        'CommandProcessor: Received data: '
+        '${data.replaceAll('\n', '\\n').replaceAll('\r', '\\r')}',
+      );
 
       _lineBuffer.write(data);
       _processBuffer();
@@ -39,8 +46,11 @@ class CommandProcessor {
 
     // Process complete lines
     for (final line in lines) {
-      final trimmed = line.trim();
+      var trimmed = line.trim();
       if (trimmed.isEmpty) continue;
+
+      // Remove ANSI escape sequences
+      trimmed = trimmed.replaceAll(RegExp(r'\x1B\[[0-9;]*[A-Za-z]'), '');
 
       // Determine line type and emit
       _lineController.add(_processLine(trimmed));

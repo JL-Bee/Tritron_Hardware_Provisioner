@@ -632,6 +632,73 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     }
 
     emit(state.copyWith(consoleEntries: entries, currentAction: current));
+
+    // Update provisioning status from console messages
+    if (state.isProvisioning && event.line.type == LineType.response) {
+      final text = event.line.content;
+      if (text.contains('Provisioning process') ||
+          text.contains('Waiting for provision') ||
+          text.contains('Configuring')) {
+        emit(state.copyWith(provisioningStatus: text));
+
+        if (text.contains('completed') ||
+            text.contains('failed') ||
+            text.contains('timeout')) {
+          _finishProvisioning(emit);
+        }
+      }
+    }
+  }
+
+  Future<void> _finishProvisioning(Emitter<ProvisionerState> emit) async {
+    _provisioningTimer?.cancel();
+
+    if (_meshService == null) {
+      emit(state.copyWith(isProvisioning: false, provisioningUuid: null));
+      return;
+    }
+
+    try {
+      final result = await _meshService!.getProvisioningResult();
+      if (result == 0) {
+        final updated = Set<String>.from(state.foundUuids)
+          ..remove(state.provisioningUuid);
+        emit(state.copyWith(
+          foundUuids: updated,
+          isProvisioning: false,
+          provisioningUuid: null,
+        ));
+
+        add(RefreshDeviceList());
+        _addActionResult(
+          'Provision device',
+          true,
+          'Device provisioned successfully',
+          emit,
+        );
+      } else {
+        emit(state.copyWith(
+          isProvisioning: false,
+          provisioningUuid: null,
+          currentError: AppError(
+            message: 'Provisioning failed with error: $result',
+          ),
+        ));
+        _addActionResult(
+          'Provision device',
+          false,
+          'Error code: $result',
+          emit,
+        );
+      }
+    } catch (e) {
+      emit(state.copyWith(
+        isProvisioning: false,
+        provisioningUuid: null,
+        currentError: AppError(message: 'Provisioning error: $e'),
+      ));
+      _addActionResult('Provision device', false, e.toString(), emit);
+    }
   }
 
   Future<void> _onSendConsoleCommand(SendConsoleCommand event, Emitter<ProvisionerState> emit) async {
