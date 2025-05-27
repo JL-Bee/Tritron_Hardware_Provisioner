@@ -8,6 +8,7 @@ import '../protocols/rtm_console_protocol.dart';
 import '../widgets/error_notification.dart';
 import '../widgets/bloc_console_widget.dart';
 import '../models/serial_port_info.dart';
+import '../models/mesh_device.dart';
 import '../services/serial_port_service.dart' as serial;
 import 'action_history_screen.dart';
 import 'provisioner_connection_screen.dart';

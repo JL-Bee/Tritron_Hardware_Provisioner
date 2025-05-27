@@ -3,6 +3,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:async';
 import '../models/serial_port_info.dart';
+import '../models/mesh_device.dart';
 import '../services/serial_port_service.dart';
 import '../services/command_processor.dart';
 import '../services/mesh_command_service.dart';
