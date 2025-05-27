@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'command_processor.dart';
 import '../protocols/rtm_console_protocol.dart';
+import '../models/mesh_device.dart';
 
 /// Service for executing mesh-specific commands
 class MeshCommandService {
