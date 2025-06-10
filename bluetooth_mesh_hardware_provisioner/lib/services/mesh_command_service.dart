@@ -4,6 +4,8 @@ import 'dart:async';
 import 'command_processor.dart';
 import '../protocols/rtm_console_protocol.dart';
 import '../models/mesh_device.dart';
+import '../models/dali_lc.dart';
+import '../models/radar_info.dart';
 
 /// Service for executing mesh-specific commands
 class MeshCommandService {
@@ -246,6 +248,88 @@ class MeshCommandService {
   Future<bool> factoryReset() async {
     final result = await executeCommand('mesh/factory_reset');
     return result.success;
+  }
+
+  /// Get the DALI LC idle configuration.
+  Future<DaliIdleConfig?> getDaliIdleConfig(int address) async {
+    final result =
+        await executeCommand('mesh/dali_lc/idle_cfg/get $address 3000');
+    if (!result.success || result.lines.isEmpty) return null;
+    final parts = result.lines.first.split(',');
+    if (parts.length != 2) return null;
+    final arc = int.tryParse(parts[0]);
+    final fade = int.tryParse(parts[1]);
+    if (arc == null || fade == null) return null;
+    return DaliIdleConfig(arc, fade);
+  }
+
+  /// Get the DALI LC trigger configuration.
+  Future<DaliTriggerConfig?> getDaliTriggerConfig(int address) async {
+    final result =
+        await executeCommand('mesh/dali_lc/trigger_cfg/get $address 3000');
+    if (!result.success || result.lines.isEmpty) return null;
+    final parts = result.lines.first.split(',');
+    if (parts.length != 4) return null;
+    final arc = int.tryParse(parts[0]);
+    final fadeIn = int.tryParse(parts[1]);
+    final fadeOut = int.tryParse(parts[2]);
+    final hold = int.tryParse(parts[3]);
+    if (arc == null || fadeIn == null || fadeOut == null || hold == null) {
+      return null;
+    }
+    return DaliTriggerConfig(arc, fadeIn, fadeOut, hold);
+  }
+
+  /// Get the remaining DALI LC identify time in seconds.
+  Future<int?> getDaliIdentifyTime(int address) async {
+    final result =
+        await executeCommand('mesh/dali_lc/identify/get $address 3000');
+    if (!result.success || result.lines.isEmpty) return null;
+    return int.tryParse(result.lines.first);
+  }
+
+  /// Get the active DALI LC override state.
+  Future<DaliOverrideState?> getDaliOverrideState(int address) async {
+    final result =
+        await executeCommand('mesh/dali_lc/override/get $address 3000');
+    if (!result.success || result.lines.isEmpty) return null;
+    final parts = result.lines.first.split(',');
+    if (parts.length != 3) return null;
+    final arc = int.tryParse(parts[0]);
+    final fade = int.tryParse(parts[1]);
+    final dur = int.tryParse(parts[2]);
+    if (arc == null || fade == null || dur == null) return null;
+    return DaliOverrideState(arc, fade, dur);
+  }
+
+  /// Get the radar configuration.
+  Future<RadarInfo?> getRadarConfig(int address) async {
+    final cfgResult = await executeCommand('mesh/radar/cfg/get $address 3000');
+    if (!cfgResult.success || cfgResult.lines.isEmpty) return null;
+    final parts = cfgResult.lines.first.split(',');
+    if (parts.length != 4) return null;
+    final band = int.tryParse(parts[0]);
+    final cross = int.tryParse(parts[1]);
+    final interval = int.tryParse(parts[2]);
+    final depth = int.tryParse(parts[3]);
+    if (band == null || cross == null || interval == null || depth == null) {
+      return null;
+    }
+
+    final enableResult =
+        await executeCommand('mesh/radar/enable/get $address 3000');
+    bool enabled = false;
+    if (enableResult.success && enableResult.lines.isNotEmpty) {
+      enabled = enableResult.lines.first.trim() == '1';
+    }
+
+    return RadarInfo(
+      bandThreshold: band,
+      crossCount: cross,
+      sampleInterval: interval,
+      bufferDepth: depth,
+      enabled: enabled,
+    );
   }
 
   void dispose() {

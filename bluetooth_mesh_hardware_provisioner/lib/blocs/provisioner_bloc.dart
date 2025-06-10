@@ -4,6 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:async';
 import '../models/serial_port_info.dart';
 import '../models/mesh_device.dart';
+import '../models/dali_lc.dart';
+import '../models/radar_info.dart';
 import '../services/serial_port_service.dart';
 import '../services/command_processor.dart';
 import '../services/mesh_command_service.dart';
@@ -75,6 +77,8 @@ class ProvisionerState {
   final List<MeshDevice> provisionedDevices;
   final MeshDevice? selectedDevice;
   final List<int> selectedDeviceSubscriptions;
+  final Map<int, DaliLcInfo> daliInfo;
+  final Map<int, RadarInfo> radarInfo;
   final bool isScanning;
   final bool isProvisioning;
   final String provisioningStatus;
@@ -91,6 +95,8 @@ class ProvisionerState {
     List<MeshDevice>? provisionedDevices,
     this.selectedDevice,
     List<int>? selectedDeviceSubscriptions,
+    Map<int, DaliLcInfo>? daliInfo,
+    Map<int, RadarInfo>? radarInfo,
     this.isScanning = false,
     this.isProvisioning = false,
     this.provisioningStatus = '',
@@ -102,6 +108,8 @@ class ProvisionerState {
   })  : foundUuids = foundUuids ?? {},
         provisionedDevices = provisionedDevices ?? [],
         selectedDeviceSubscriptions = selectedDeviceSubscriptions ?? [],
+        daliInfo = daliInfo ?? {},
+        radarInfo = radarInfo ?? {},
         consoleEntries = consoleEntries ?? [],
         actionHistory = actionHistory ?? [];
 
@@ -112,6 +120,8 @@ class ProvisionerState {
     List<MeshDevice>? provisionedDevices,
     MeshDevice? selectedDevice,
     List<int>? selectedDeviceSubscriptions,
+    Map<int, DaliLcInfo>? daliInfo,
+    Map<int, RadarInfo>? radarInfo,
     bool? isScanning,
     bool? isProvisioning,
     String? provisioningStatus,
@@ -129,6 +139,8 @@ class ProvisionerState {
       provisionedDevices: provisionedDevices ?? this.provisionedDevices,
       selectedDevice: selectedDevice ?? this.selectedDevice,
       selectedDeviceSubscriptions: selectedDeviceSubscriptions ?? this.selectedDeviceSubscriptions,
+      daliInfo: daliInfo ?? this.daliInfo,
+      radarInfo: radarInfo ?? this.radarInfo,
       isScanning: isScanning ?? this.isScanning,
       isProvisioning: isProvisioning ?? this.isProvisioning,
       provisioningStatus: provisioningStatus ?? this.provisioningStatus,
@@ -582,6 +594,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
 
     if (event.device != null && _meshService != null) {
       await _loadDeviceSubscriptions(event.device!.address, emit);
+      await _loadDeviceDetails(event.device!.address, emit);
     }
   }
 
@@ -593,6 +606,38 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
       emit(state.copyWith(
         currentError: AppError(
           message: 'Failed to load subscriptions: $e',
+          severity: ErrorSeverity.warning,
+        ),
+      ));
+    }
+  }
+
+  Future<void> _loadDeviceDetails(int address, Emitter<ProvisionerState> emit) async {
+    try {
+      final idle = await _meshService!.getDaliIdleConfig(address);
+      final trig = await _meshService!.getDaliTriggerConfig(address);
+      final identify = await _meshService!.getDaliIdentifyTime(address);
+      final override = await _meshService!.getDaliOverrideState(address);
+      final radar = await _meshService!.getRadarConfig(address);
+
+      final newDali = Map<int, DaliLcInfo>.from(state.daliInfo);
+      if (idle != null && trig != null && identify != null && override != null) {
+        newDali[address] = DaliLcInfo(
+          idle: idle,
+          trigger: trig,
+          identifyRemaining: identify,
+          override: override,
+        );
+      }
+
+      final newRadar = Map<int, RadarInfo>.from(state.radarInfo);
+      if (radar != null) newRadar[address] = radar;
+
+      emit(state.copyWith(daliInfo: newDali, radarInfo: newRadar));
+    } catch (e) {
+      emit(state.copyWith(
+        currentError: AppError(
+          message: 'Failed to load device details: $e',
           severity: ErrorSeverity.warning,
         ),
       ));

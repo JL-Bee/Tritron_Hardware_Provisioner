@@ -85,16 +85,20 @@ All commands must be prefixed with `mesh/`.
 - `mesh/device/sub/get {node_addr}` - Get subscribe list
 
 ### Lighting Control Commands
-- `mesh/dali_lc/idle_arc/set {node_addr} {arc}` - Set idle arc level
-- `mesh/dali_lc/idle_arc/get {node_addr}` - Get idle arc level
-- `mesh/dali_lc/trigger_arc/set {node_addr} {arc}` - Set trigger arc level
-- `mesh/dali_lc/trigger_arc/get {node_addr}` - Get trigger arc level
-- `mesh/dali_lc/hold_time/set {node_addr} {hold_time}` - Set hold time
-- `mesh/dali_lc/hold_time/get {node_addr}` - Get hold time
+- `mesh/dali_lc/idle_cfg/set {addr} {arc} {fade} {timeout}` - Set idle config
+- `mesh/dali_lc/idle_cfg/get {addr} {timeout}` - Get idle config
+- `mesh/dali_lc/trigger_cfg/set {addr} {arc} {fade_in} {fade_out} {hold} {timeout}` - Set trigger config
+- `mesh/dali_lc/trigger_cfg/get {addr} {timeout}` - Get trigger config
+- `mesh/dali_lc/identify/set {addr} {duration} {timeout}` - Identify node
+- `mesh/dali_lc/identify/get {addr} {timeout}` - Get identify time
+- `mesh/dali_lc/override/set {addr} {arc} {fade} {duration} {timeout}` - Override output
+- `mesh/dali_lc/override/get {addr} {timeout}` - Get override state
 
 ### Radar Commands
-- `mesh/radar/sensitivity/set {node_addr} {sensitivity}` - Set radar sensitivity
-- `mesh/radar/sensitivity/get {node_addr}` - Get radar sensitivity
+- `mesh/radar/cfg/set {addr} {band} {cross} {interval} {depth} {timeout}` - Set radar configuration
+- `mesh/radar/cfg/get {addr} {timeout}` - Get radar configuration
+- `mesh/radar/enable/set {addr} {enable} {timeout}` - Enable/disable radar
+- `mesh/radar/enable/get {addr} {timeout}` - Get radar enable state
 
 ## Platform Setup
 

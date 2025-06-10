@@ -642,6 +642,10 @@ class _BlocMainScreenState extends State<BlocMainScreen>
               ),
             ),
           ),
+          const SizedBox(height: 16),
+          _buildDaliInfoCard(state, device),
+          const SizedBox(height: 16),
+          _buildRadarInfoCard(state, device),
         ],
       ),
     );
@@ -686,6 +690,75 @@ class _BlocMainScreenState extends State<BlocMainScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDaliInfoCard(provisioner.ProvisionerState state, MeshDevice device) {
+    final info = state.daliInfo[device.address];
+    if (info == null) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Text('DALI LC information unavailable'),
+        ),
+      );
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'DALI Light Control',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const Divider(),
+            _buildInfoRow('Idle', '${info.idle.arc}, fade ${info.idle.fade}'),
+            _buildInfoRow(
+                'Trigger',
+                '${info.trigger.arc}, in ${info.trigger.fadeIn}, out ${info.trigger.fadeOut}, hold ${info.trigger.holdTime}s'),
+            _buildInfoRow('Identify Time', info.identifyRemaining.toString()),
+            _buildInfoRow(
+                'Override',
+                '${info.override.arc}, fade ${info.override.fade}, ${info.override.duration}s'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRadarInfoCard(provisioner.ProvisionerState state, MeshDevice device) {
+    final radar = state.radarInfo[device.address];
+    if (radar == null) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Text('Radar information unavailable'),
+        ),
+      );
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Radar Configuration',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const Divider(),
+            _buildInfoRow('Band Threshold', radar.bandThreshold.toString()),
+            _buildInfoRow('Cross Count', radar.crossCount.toString()),
+            _buildInfoRow('Sample Interval', '${radar.sampleInterval} ms'),
+            _buildInfoRow('Buffer Depth', radar.bufferDepth.toString()),
+            _buildInfoRow('Enabled', radar.enabled ? 'Yes' : 'No'),
+          ],
+        ),
       ),
     );
   }
