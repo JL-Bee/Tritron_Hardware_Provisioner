@@ -100,6 +100,44 @@ All commands must be prefixed with `mesh/`.
 - `mesh/radar/enable/set {addr} {enable} {timeout}` - Enable/disable radar
 - `mesh/radar/enable/get {addr} {timeout}` - Get radar enable state
 
+### Fade Time Values
+The DALI commands use predefined fade times listed below:
+
+| Value | Duration |
+| ----- | -------- |
+| 0 | 0s |
+| 1 | 0.5s |
+| 2 | 1s |
+| 3 | 1.5s |
+| 4 | 2s |
+| 5 | 3s |
+| 6 | 4s |
+| 7 | 6s |
+| 8 | 8s |
+| 9 | 10s |
+| 10 | 15s |
+| 11 | 20s |
+| 12 | 30s |
+| 13 | 45s |
+| 14 | 60s |
+| 15 | 90s |
+| 16 | 2m |
+| 17 | 3m |
+| 18 | 4m |
+| 19 | 5m |
+| 20 | 6m |
+| 21 | 7m |
+| 22 | 8m |
+| 23 | 9m |
+| 24 | 10m |
+| 25 | 11m |
+| 26 | 12m |
+| 27 | 13m |
+| 28 | 14m |
+| 29 | 15m |
+| 30 | 16m |
+| 255 | Invalid |
+
 ## Platform Setup
 
 ### Windows

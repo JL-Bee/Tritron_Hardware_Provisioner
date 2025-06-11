@@ -1,18 +1,28 @@
 // lib/models/dali_lc.dart
 
+import 'fade_time.dart';
+
 /// Idle configuration for DALI light controller.
 class DaliIdleConfig {
+  /// Desired arc level in idle state.
   final int arc;
-  final int fade;
+
+  /// Fade time used when transitioning to idle.
+  final FadeTime fade;
 
   DaliIdleConfig(this.arc, this.fade);
 }
 
 /// Trigger configuration for DALI light controller.
 class DaliTriggerConfig {
+  /// Arc level used in trigger state.
   final int arc;
-  final int fadeIn;
-  final int fadeOut;
+
+  /// Fade time to reach the trigger arc level.
+  final FadeTime fadeIn;
+
+  /// Fade time to return to idle arc level.
+  final FadeTime fadeOut;
   final int holdTime;
 
   DaliTriggerConfig(this.arc, this.fadeIn, this.fadeOut, this.holdTime);
@@ -20,8 +30,11 @@ class DaliTriggerConfig {
 
 /// Override state for DALI light controller.
 class DaliOverrideState {
+  /// Arc level during the override period.
   final int arc;
-  final int fade;
+
+  /// Fade time used when applying the override.
+  final FadeTime fade;
   final int duration;
 
   DaliOverrideState(this.arc, this.fade, this.duration);
