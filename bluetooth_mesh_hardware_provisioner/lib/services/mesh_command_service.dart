@@ -6,6 +6,7 @@ import '../protocols/rtm_console_protocol.dart';
 import '../models/mesh_device.dart';
 import '../models/dali_lc.dart';
 import '../models/radar_info.dart';
+import '../models/fade_time.dart';
 
 /// Service for executing mesh-specific commands
 class MeshCommandService {
@@ -258,9 +259,9 @@ class MeshCommandService {
     final parts = result.lines.first.split(',');
     if (parts.length != 2) return null;
     final arc = int.tryParse(parts[0]);
-    final fade = int.tryParse(parts[1]);
-    if (arc == null || fade == null) return null;
-    return DaliIdleConfig(arc, fade);
+    final fadeVal = int.tryParse(parts[1]);
+    if (arc == null || fadeVal == null) return null;
+    return DaliIdleConfig(arc, FadeTime.fromValue(fadeVal));
   }
 
   /// Get the DALI LC trigger configuration.
@@ -271,13 +272,18 @@ class MeshCommandService {
     final parts = result.lines.first.split(',');
     if (parts.length != 4) return null;
     final arc = int.tryParse(parts[0]);
-    final fadeIn = int.tryParse(parts[1]);
-    final fadeOut = int.tryParse(parts[2]);
+    final fadeInVal = int.tryParse(parts[1]);
+    final fadeOutVal = int.tryParse(parts[2]);
     final hold = int.tryParse(parts[3]);
-    if (arc == null || fadeIn == null || fadeOut == null || hold == null) {
+    if (arc == null || fadeInVal == null || fadeOutVal == null || hold == null) {
       return null;
     }
-    return DaliTriggerConfig(arc, fadeIn, fadeOut, hold);
+    return DaliTriggerConfig(
+      arc,
+      FadeTime.fromValue(fadeInVal),
+      FadeTime.fromValue(fadeOutVal),
+      hold,
+    );
   }
 
   /// Get the remaining DALI LC identify time in seconds.
@@ -296,10 +302,10 @@ class MeshCommandService {
     final parts = result.lines.first.split(',');
     if (parts.length != 3) return null;
     final arc = int.tryParse(parts[0]);
-    final fade = int.tryParse(parts[1]);
+    final fadeVal = int.tryParse(parts[1]);
     final dur = int.tryParse(parts[2]);
-    if (arc == null || fade == null || dur == null) return null;
-    return DaliOverrideState(arc, fade, dur);
+    if (arc == null || fadeVal == null || dur == null) return null;
+    return DaliOverrideState(arc, FadeTime.fromValue(fadeVal), dur);
   }
 
   /// Get the radar configuration.
