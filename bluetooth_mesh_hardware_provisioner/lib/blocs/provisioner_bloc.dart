@@ -631,6 +631,12 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
       type: _getConsoleEntryType(event.line.type),
     ));
 
+    // Check for provisioning messages that are pushed by the device itself. The
+    // provisioner publishes these messages asynchronously so we should update
+    // the provisioning status and finalise the process without waiting for the
+    // next polling tick.
+    _handleProvisioningNotification(event.line.content, emit);
+
     // Update current action log if active
     ActionExecution? current = state.currentAction;
     if (current != null) {
@@ -702,26 +708,51 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     if (status.contains('completed') ||
         status.contains('failed') ||
         status.contains('timeout')) {
-      _provisioningTimer?.cancel();
+      await _finalizeProvisioning(uuid, emit);
+    }
+  }
 
-      final result = await _meshService!.getProvisioningResult();
-      if (result == 0) {
-        final updatedUuids = Set<String>.from(state.foundUuids)..remove(uuid);
-        emit(state.copyWith(
-          foundUuids: updatedUuids,
-          isProvisioning: false,
-          provisioningUuid: null,
-        ));
+  /// Handle the finalisation of a provisioning task once the device reports
+  /// completion or failure.
+  Future<void> _finalizeProvisioning(String uuid, Emitter<ProvisionerState> emit) async {
+    _provisioningTimer?.cancel();
 
-        add(RefreshDeviceList());
-        _addActionResult('Provision device', true, 'Device provisioned successfully', emit);
-      } else {
-        emit(state.copyWith(
-          isProvisioning: false,
-          provisioningUuid: null,
-          currentError: AppError(message: 'Provisioning failed with error: $result'),
-        ));
-        _addActionResult('Provision device', false, 'Error code: $result', emit);
+    final result = await _meshService!.getProvisioningResult();
+    if (result == 0) {
+      final updatedUuids = Set<String>.from(state.foundUuids)..remove(uuid);
+      emit(state.copyWith(
+        foundUuids: updatedUuids,
+        isProvisioning: false,
+        provisioningUuid: null,
+      ));
+
+      add(RefreshDeviceList());
+      _addActionResult('Provision device', true, 'Device provisioned successfully', emit);
+    } else {
+      emit(state.copyWith(
+        isProvisioning: false,
+        provisioningUuid: null,
+        currentError: AppError(message: 'Provisioning failed with error: $result'),
+      ));
+      _addActionResult('Provision device', false, 'Error code: $result', emit);
+    }
+  }
+
+  /// Update provisioning status based on a line pushed by the provisioner.
+  /// If the line indicates completion or failure, the provisioning workflow is
+  /// finalised immediately without waiting for the polling timer.
+  void _handleProvisioningNotification(String line, Emitter<ProvisionerState> emit) {
+    if (!state.isProvisioning) return;
+
+    final lower = line.toLowerCase();
+    if (lower.contains('provisioning')) {
+      emit(state.copyWith(provisioningStatus: line));
+
+      if (lower.contains('completed') || lower.contains('failed') || lower.contains('timeout')) {
+        final uuid = state.provisioningUuid;
+        if (uuid != null) {
+          _finalizeProvisioning(uuid, emit);
+        }
       }
     }
   }
