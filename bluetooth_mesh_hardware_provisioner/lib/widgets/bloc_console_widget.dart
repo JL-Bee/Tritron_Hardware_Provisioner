@@ -16,6 +16,7 @@ class _BlocConsoleWidgetState extends State<BlocConsoleWidget> {
   final TextEditingController _commandController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _commandFocus = FocusNode();
+  final FocusNode _inputFocus = FocusNode();
 
   // History of executed commands. New commands are appended to the end.
   final List<String> _history = [];
@@ -58,7 +59,7 @@ class _BlocConsoleWidgetState extends State<BlocConsoleWidget> {
   void initState() {
     super.initState();
     // Prevent focus traversal so the tab key can be used for auto completion.
-    _commandFocus.skipTraversal = true;
+    _inputFocus.skipTraversal = true;
   }
 
   @override
@@ -66,6 +67,7 @@ class _BlocConsoleWidgetState extends State<BlocConsoleWidget> {
     _commandController.dispose();
     _scrollController.dispose();
     _commandFocus.dispose();
+    _inputFocus.dispose();
     super.dispose();
   }
 
@@ -88,7 +90,7 @@ class _BlocConsoleWidgetState extends State<BlocConsoleWidget> {
     context.read<ProvisionerBloc>().add(SendConsoleCommand(command));
 
     // Keep focus so the user can type the next command immediately.
-    _commandFocus.requestFocus();
+    _inputFocus.requestFocus();
   }
 
   void _copyToClipboard(List<ConsoleEntry> entries) {
@@ -257,7 +259,7 @@ class _BlocConsoleWidgetState extends State<BlocConsoleWidget> {
                       onKey: _handleKey,
                       child: TextField(
                         controller: _commandController,
-                        focusNode: _commandFocus,
+                        focusNode: _inputFocus,
                         style: const TextStyle(fontFamily: 'monospace'),
                         decoration: const InputDecoration(
                           hintText: 'Enter command (e.g., mesh/device/list)',
