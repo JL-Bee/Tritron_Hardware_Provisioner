@@ -23,6 +23,7 @@ class _ConsoleWidgetState extends State<ConsoleWidget> {
   final TextEditingController _commandController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _commandFocus = FocusNode();
+  final FocusNode _inputFocus = FocusNode();
 
   // History of previously executed commands for quick recall.
   final List<String> _history = [];
@@ -67,7 +68,7 @@ class _ConsoleWidgetState extends State<ConsoleWidget> {
   void initState() {
     super.initState();
     // Prevent focus traversal so the tab key can be used for auto completion.
-    _commandFocus.skipTraversal = true;
+    _inputFocus.skipTraversal = true;
     _listenToData();
   }
 
@@ -77,6 +78,7 @@ class _ConsoleWidgetState extends State<ConsoleWidget> {
     _commandController.dispose();
     _scrollController.dispose();
     _commandFocus.dispose();
+    _inputFocus.dispose();
     super.dispose();
   }
 
@@ -193,7 +195,7 @@ class _ConsoleWidgetState extends State<ConsoleWidget> {
     widget.onCommand(command);
 
     // Keep focus on the input so the next command can be typed immediately.
-    _commandFocus.requestFocus();
+    _inputFocus.requestFocus();
   }
 
   void _copyToClipboard() {
@@ -347,7 +349,7 @@ class _ConsoleWidgetState extends State<ConsoleWidget> {
                   onKey: _handleKey,
                   child: TextField(
                     controller: _commandController,
-                    focusNode: _commandFocus,
+                    focusNode: _inputFocus,
                     style: const TextStyle(fontFamily: 'monospace'),
                     decoration: const InputDecoration(
                       hintText: 'Enter command (e.g., mesh/device/list)',
