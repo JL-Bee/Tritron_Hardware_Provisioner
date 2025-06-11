@@ -69,6 +69,18 @@ class _ProcessedLineReceived extends ProvisionerEvent {
   _ProcessedLineReceived(this.line);
 }
 
+// Internal event for polling provisioning status
+class _PollProvisioningStatus extends ProvisionerEvent {
+  final String uuid;
+  _PollProvisioningStatus(this.uuid);
+}
+
+// Internal event to finalise provisioning once completed
+class _FinalizeProvisioning extends ProvisionerEvent {
+  final String uuid;
+  _FinalizeProvisioning(this.uuid);
+}
+
 // States
 class ProvisionerState {
   final ConnectionStatus connectionStatus;
@@ -280,6 +292,8 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     on<NodeDiscovered>(_onNodeDiscovered);
     on<SendConsoleCommand>(_onSendConsoleCommand);
     on<_ProcessedLineReceived>(_onProcessedLineReceived);
+    on<_PollProvisioningStatus>(_onPollProvisioningStatus);
+    on<_FinalizeProvisioning>(_onFinalizeProvisioning);
   }
 
   Future<void> _onConnectToPort(ConnectToPort event, Emitter<ProvisionerState> emit) async {
@@ -432,7 +446,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
       }
 
       // Start polling for provisioning status until the process completes.
-      _startProvisioningPolling(event.uuid, emit);
+      _startProvisioningPolling(event.uuid);
     } catch (e) {
       emit(state.copyWith(
         isProvisioning: false,
@@ -688,15 +702,16 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
   /// Begin polling of the provisioning status. Any existing polling timer is
   /// cancelled before a new one is created. The polling continues until the
   /// device reports that provisioning has completed or failed.
-  void _startProvisioningPolling(String uuid, Emitter<ProvisionerState> emit) {
+  void _startProvisioningPolling(String uuid) {
     _provisioningTimer?.cancel();
     _provisioningTimer = Timer.periodic(
       const Duration(seconds: 1),
-      (_) => _pollProvisioningStatus(uuid, emit),
+      (_) => add(_PollProvisioningStatus(uuid)),
     );
   }
 
-  Future<void> _pollProvisioningStatus(String uuid, Emitter<ProvisionerState> emit) async {
+  Future<void> _onPollProvisioningStatus(
+      _PollProvisioningStatus event, Emitter<ProvisionerState> emit) async {
     if (!state.isProvisioning) {
       _provisioningTimer?.cancel();
       return;
@@ -708,8 +723,13 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     if (status.contains('completed') ||
         status.contains('failed') ||
         status.contains('timeout')) {
-      await _finalizeProvisioning(uuid, emit);
+      add(_FinalizeProvisioning(event.uuid));
     }
+  }
+
+  Future<void> _onFinalizeProvisioning(
+      _FinalizeProvisioning event, Emitter<ProvisionerState> emit) async {
+    await _finalizeProvisioning(event.uuid, emit);
   }
 
   /// Handle the finalisation of a provisioning task once the device reports
@@ -751,7 +771,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
       if (lower.contains('completed') || lower.contains('failed') || lower.contains('timeout')) {
         final uuid = state.provisioningUuid;
         if (uuid != null) {
-          _finalizeProvisioning(uuid, emit);
+          add(_FinalizeProvisioning(uuid));
         }
       }
     }
