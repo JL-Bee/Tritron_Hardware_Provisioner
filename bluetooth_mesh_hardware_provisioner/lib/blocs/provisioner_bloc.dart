@@ -633,7 +633,45 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
   void _onClearError(ClearError event, Emitter<ProvisionerState> emit) {
     emit(state.copyWith(clearError: true));
   }
+Future<void> _onSendConsoleCommand(SendConsoleCommand event, Emitter<ProvisionerState> emit) async {
+    if (_meshService == null) return;
 
+    // Add command to console entries
+    final entries = List<ConsoleEntry>.from(state.consoleEntries);
+    entries.add(ConsoleEntry(
+      text: event.command,
+      type: ConsoleEntryType.command,
+      timestamp: DateTime.now(),
+    ));
+
+    // Keep only last 1000 entries
+    if (entries.length > 1000) {
+      entries.removeRange(0, entries.length - 1000);
+    }
+
+    emit(state.copyWith(consoleEntries: entries));
+
+    try {
+      // Send the command via mesh service
+      await _meshService!.sendCommand(event.command);
+    } catch (e) {
+      // Add error to console
+      final errorEntries = List<ConsoleEntry>.from(state.consoleEntries);
+      errorEntries.add(ConsoleEntry(
+        text: 'Error sending command: $e',
+        type: ConsoleEntryType.error,
+        timestamp: DateTime.now(),
+      ));
+
+      emit(state.copyWith(
+        consoleEntries: errorEntries,
+        currentError: AppError(
+          message: 'Failed to send command: $e',
+          severity: ErrorSeverity.error,
+        ),
+      ));
+    }
+  }
   void _onNodeDiscovered(NodeDiscovered event, Emitter<ProvisionerState> emit) {
     final updated = Set<String>.from(state.foundUuids)..add(event.uuid);
     emit(state.copyWith(foundUuids: updated));
