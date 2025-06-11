@@ -156,29 +156,29 @@ class MeshCommandService {
     return uuids;
   }
 
-  /// Get list of provisioned devices
-  Future<List<MeshDevice>> getProvisionedDevices() async {
-    final result = await executeCommand('mesh/device/list');
+/// Get list of provisioned devices
+Future<List<MeshDevice>> getProvisionedDevices() async {
+  final result = await executeCommand('mesh/device/list');
 
-    if (!result.success) {
-      return [];
-    }
-
-    // Parse device list
-    final devices = <MeshDevice>[];
-    for (final line in result.lines) {
-      // Format: 0x0002:0c305584745b4c09b3cfaa7b8ba483f6
-      final match = RegExp(r'0x([0-9a-fA-F]+):([0-9a-fA-F]{32})').firstMatch(line);
-      if (match != null) {
-        devices.add(MeshDevice(
-          address: int.parse(match.group(1)!, radix: 16),
-          uuid: match.group(2)!,
-        ));
-      }
-    }
-
-    return devices;
+  if (!result.success) {
+    return [];
   }
+
+  // Parse device list
+  final devices = <MeshDevice>[];
+  for (final line in result.lines) {
+    // Format: 0x0002:0c305584745b4c09b3cfaa7b8ba483f6 or 0x0002,0c305584745b4c09b3cfaa7b8ba483f6
+    final match = RegExp(r'0x([0-9a-fA-F]+)[:, ]([0-9a-fA-F]{32})').firstMatch(line);
+    if (match != null) {
+      devices.add(MeshDevice(
+        address: int.parse(match.group(1)!, radix: 16),
+        uuid: match.group(2)!,
+      ));
+    }
+  }
+
+  return devices;
+}
 
   /// Start provisioning a device
   Future<bool> provisionDevice(String uuid) async {
