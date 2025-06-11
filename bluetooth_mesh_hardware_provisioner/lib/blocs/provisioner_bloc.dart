@@ -261,6 +261,9 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
   StreamSubscription? _processedLineSubscription;
   StreamSubscription? _nodeFoundSubscription;
 
+  /// Timer used to poll the provisioning status while a node is being
+  /// provisioned. It is cancelled once provisioning completes or the bloc is
+  /// disposed.
   Timer? _provisioningTimer;
 
   ProvisionerBloc() : super(ProvisionerState()) {
@@ -428,40 +431,8 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
         return;
       }
 
-      // Poll for provisioning status
-      _provisioningTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
-        if (!state.isProvisioning) {
-          timer.cancel();
-          return;
-        }
-
-        final status = await _meshService!.getProvisioningStatus();
-        emit(state.copyWith(provisioningStatus: status));
-
-        if (status.contains('completed') || status.contains('failed') || status.contains('timeout')) {
-          timer.cancel();
-
-          final result = await _meshService!.getProvisioningResult();
-          if (result == 0) {
-            final updatedUuids = Set<String>.from(state.foundUuids)..remove(event.uuid);
-            emit(state.copyWith(
-              foundUuids: updatedUuids,
-              isProvisioning: false,
-              provisioningUuid: null,
-            ));
-
-            add(RefreshDeviceList());
-            _addActionResult('Provision device', true, 'Device provisioned successfully', emit);
-          } else {
-            emit(state.copyWith(
-              isProvisioning: false,
-              provisioningUuid: null,
-              currentError: AppError(message: 'Provisioning failed with error: $result'),
-            ));
-            _addActionResult('Provision device', false, 'Error code: $result', emit);
-          }
-        }
-      });
+      // Start polling for provisioning status until the process completes.
+      _startProvisioningPolling(event.uuid, emit);
     } catch (e) {
       emit(state.copyWith(
         isProvisioning: false,
@@ -705,6 +676,53 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
           severity: ErrorSeverity.warning,
         ),
       ));
+    }
+  }
+
+  /// Begin polling of the provisioning status. Any existing polling timer is
+  /// cancelled before a new one is created. The polling continues until the
+  /// device reports that provisioning has completed or failed.
+  void _startProvisioningPolling(String uuid, Emitter<ProvisionerState> emit) {
+    _provisioningTimer?.cancel();
+    _provisioningTimer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => _pollProvisioningStatus(uuid, emit),
+    );
+  }
+
+  Future<void> _pollProvisioningStatus(String uuid, Emitter<ProvisionerState> emit) async {
+    if (!state.isProvisioning) {
+      _provisioningTimer?.cancel();
+      return;
+    }
+
+    final status = await _meshService!.getProvisioningStatus();
+    emit(state.copyWith(provisioningStatus: status));
+
+    if (status.contains('completed') ||
+        status.contains('failed') ||
+        status.contains('timeout')) {
+      _provisioningTimer?.cancel();
+
+      final result = await _meshService!.getProvisioningResult();
+      if (result == 0) {
+        final updatedUuids = Set<String>.from(state.foundUuids)..remove(uuid);
+        emit(state.copyWith(
+          foundUuids: updatedUuids,
+          isProvisioning: false,
+          provisioningUuid: null,
+        ));
+
+        add(RefreshDeviceList());
+        _addActionResult('Provision device', true, 'Device provisioned successfully', emit);
+      } else {
+        emit(state.copyWith(
+          isProvisioning: false,
+          provisioningUuid: null,
+          currentError: AppError(message: 'Provisioning failed with error: $result'),
+        ));
+        _addActionResult('Provision device', false, 'Error code: $result', emit);
+      }
     }
   }
 
