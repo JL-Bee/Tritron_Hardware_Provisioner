@@ -406,56 +406,90 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
   }
 
   Future<void> _onProvisionDevice(ProvisionDevice event, Emitter<ProvisionerState> emit) async {
-    if (state.isProvisioning || _meshService == null) return;
+  if (state.isProvisioning || _meshService == null) return;
 
-    emit(state.copyWith(
-      isProvisioning: true,
-      provisioningStatus: 'Starting provisioning...',
-      provisioningUuid: event.uuid,
-      currentAction: ActionExecution(action: 'Provision device'),
-    ));
+  emit(state.copyWith(
+    isProvisioning: true,
+    provisioningStatus: 'Starting provisioning...',
+    provisioningUuid: event.uuid,
+    currentAction: ActionExecution(action: 'Provision device'),
+  ));
 
-    try {
-      final success = await _meshService!.provisionDevice(event.uuid);
+  try {
+    final success = await _meshService!.provisionDevice(event.uuid);
 
-      if (!success) {
-        // Check if device is already provisioned
-        final devices = await _meshService!.getProvisionedDevices();
-        final isAlreadyProvisioned = devices.any((d) => d.uuid == event.uuid);
+    if (!success) {
+      // Check if device is already provisioned
+      final devices = await _meshService!.getProvisionedDevices();
+      final isAlreadyProvisioned = devices.any((d) => d.uuid == event.uuid);
 
-        if (isAlreadyProvisioned) {
-          emit(state.copyWith(
-            isProvisioning: false,
-            provisioningUuid: null,
-            currentError: AppError(
-              message: 'Device is already provisioned. Use Factory Reset to clear the database.',
-              severity: ErrorSeverity.warning,
-            ),
-          ));
-          _addActionResult('Provision device', false, 'Already provisioned', emit);
-          return;
-        }
-
+      if (isAlreadyProvisioned) {
         emit(state.copyWith(
           isProvisioning: false,
           provisioningUuid: null,
-          currentError: AppError(message: 'Failed to start provisioning'),
+          currentError: AppError(
+            message: 'Device is already provisioned. Use Factory Reset to clear the database.',
+            severity: ErrorSeverity.warning,
+          ),
         ));
-        _addActionResult('Provision device', false, 'Failed to start', emit);
+        _addActionResult('Provision device', false, 'Already provisioned', emit);
         return;
       }
 
-      // Start polling for provisioning status until the process completes.
-      _startProvisioningPolling(event.uuid);
-    } catch (e) {
       emit(state.copyWith(
         isProvisioning: false,
         provisioningUuid: null,
-        currentError: AppError(message: 'Provisioning error: $e'),
+        currentError: AppError(message: 'Failed to start provisioning'),
       ));
-      _addActionResult('Provision device', false, e.toString(), emit);
+      _addActionResult('Provision device', false, 'Failed to start', emit);
+      return;
     }
+
+    // Poll for provisioning status
+    _provisioningTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
+      if (!state.isProvisioning) {
+        timer.cancel();
+        return;
+      }
+
+      final status = await _meshService!.getProvisioningStatus();
+      emit(state.copyWith(provisioningStatus: status));
+
+      if (status.contains('completed') || status.contains('failed') || status.contains('timeout')) {
+        timer.cancel();
+
+        final result = await _meshService!.getProvisioningResult();
+        if (result == 0) {
+          final updatedUuids = Set<String>.from(state.foundUuids)..remove(event.uuid);
+          emit(state.copyWith(
+            foundUuids: updatedUuids,
+            isProvisioning: false,
+            provisioningUuid: null,
+          ));
+
+          // Add a delay before refreshing to ensure the device is ready
+          await Future.delayed(const Duration(seconds: 1));
+          add(RefreshDeviceList());
+          _addActionResult('Provision device', true, 'Device provisioned successfully', emit);
+        } else {
+          emit(state.copyWith(
+            isProvisioning: false,
+            provisioningUuid: null,
+            currentError: AppError(message: 'Provisioning failed with error: $result'),
+          ));
+          _addActionResult('Provision device', false, 'Error code: $result', emit);
+        }
+      }
+    });
+  } catch (e) {
+    emit(state.copyWith(
+      isProvisioning: false,
+      provisioningUuid: null,
+      currentError: AppError(message: 'Provisioning error: $e'),
+    ));
+    _addActionResult('Provision device', false, e.toString(), emit);
   }
+}
 
   Future<void> _onUnprovisionDevice(UnprovisionDevice event, Emitter<ProvisionerState> emit) async {
     if (_meshService == null) return;
@@ -638,12 +672,75 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     emit(state.copyWith(foundUuids: updated));
   }
 
-  void _onProcessedLineReceived(_ProcessedLineReceived event, Emitter<ProvisionerState> emit) {
-    final entries = List<ConsoleEntry>.from(state.consoleEntries);
-    entries.add(ConsoleEntry(
-      text: event.line.raw,
-      type: _getConsoleEntryType(event.line.type),
-    ));
+void _onProcessedLineReceived(_ProcessedLineReceived event, Emitter<ProvisionerState> emit) {
+  final entries = List<ConsoleEntry>.from(state.consoleEntries);
+  entries.add(ConsoleEntry(
+    text: event.line.raw,
+    type: _getConsoleEntryType(event.line.type),
+  ));
+
+  // Update current action log if active
+  ActionExecution? current = state.currentAction;
+  if (current != null) {
+    final log = List<ConsoleEntry>.from(current.log)
+      ..add(ConsoleEntry(
+        text: event.line.raw,
+        type: _getConsoleEntryType(event.line.type),
+      ));
+    current = current.copyWith(log: log);
+  }
+
+  // Keep only last 1000 entries
+  if (entries.length > 1000) {
+    entries.removeRange(0, entries.length - 1000);
+  }
+
+  emit(state.copyWith(consoleEntries: entries, currentAction: current));
+}
+
+  // Parse responses for GET commands
+  if (event.line.type == LineType.response && state.currentAction != null) {
+    final command = state.currentAction!.action;
+    final response = event.line.content;
+
+    // Parse different response types
+    if (command.contains('device/label/get') && !response.contains('error')) {
+      // Store label response
+      // You might want to add a field to state for storing these values
+    } else if (command.contains('dali_lc/idle_cfg/get') && response.contains(',')) {
+      // Parse idle config: arc,fade
+      final parts = response.split(',');
+      if (parts.length == 2) {
+        // Store idle config
+      }
+    } else if (command.contains('dali_lc/trigger_cfg/get') && response.contains(',')) {
+      // Parse trigger config: arc,fade_in,fade_out,hold_time
+      final parts = response.split(',');
+      if (parts.length == 4) {
+        // Store trigger config
+      }
+    }
+    // Add more parsing as needed...
+  }
+
+  // Update current action log if active
+  ActionExecution? current = state.currentAction;
+  if (current != null) {
+    final log = List<ConsoleEntry>.from(current.log)
+      ..add(ConsoleEntry(
+        text: event.line.raw,
+        type: _getConsoleEntryType(event.line.type),
+      ));
+    current = current.copyWith(log: log);
+  }
+
+  // Keep only last 1000 entries
+  if (entries.length > 1000) {
+    entries.removeRange(0, entries.length - 1000);
+  }
+
+  emit(state.copyWith(consoleEntries: entries, currentAction: current));
+}
 
     // Check for provisioning messages that are pushed by the device itself. The
     // provisioner publishes these messages asynchronously so we should update
