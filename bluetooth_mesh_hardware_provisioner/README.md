@@ -70,8 +70,8 @@ All commands must be prefixed with `mesh/`.
 - `mesh/provision/status/get` - Get provisioning state
 - `mesh/provision/last_addr/get` - Get the last assigned address
 
-### Device Commands
-- `mesh/device/reset {node_addr}` - Reset and unprovision a node
+-### Device Commands
+- `mesh/device/reset {node_addr} {timeout}` - Reset and unprovision a node
 - `mesh/device/remove {node_addr}` - Remove a node from the local DB
 - `mesh/device/label/get {node_addr}` - Fetch the node's label
 - `mesh/device/label/set {node_addr} {label}` - Set a label for the node

@@ -203,7 +203,8 @@ Future<List<MeshDevice>> getProvisionedDevices() async {
 
   /// Reset (unprovision) a device
   Future<bool> resetDevice(int address) async {
-    final result = await executeCommand('mesh/device/reset 0x${address.toRadixString(16)}');
+    final result =
+        await executeCommand('mesh/device/reset 0x${address.toRadixString(16)} 3000');
     return result.success;
   }
 
