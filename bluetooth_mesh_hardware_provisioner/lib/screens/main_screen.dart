@@ -80,7 +80,6 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                 timestamp: DateTime.now(),
               );
             });
-            _clearStateAfterDelay(key);
           }
         } else if (key.contains('dali_idle_get')) {
           if (cleanResponse.contains(',')) {
@@ -93,7 +92,6 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                   timestamp: DateTime.now(),
                 );
               });
-              _clearStateAfterDelay(key);
             }
           }
         } else if (key.contains('dali_trigger_get')) {
@@ -106,7 +104,6 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                 timestamp: DateTime.now(),
               );
             });
-            _clearStateAfterDelay(key);
           }
         } else if (key.contains('dali_identify_get')) {
           if (RegExp(r'^\d+$').hasMatch(cleanResponse)) {
@@ -126,7 +123,6 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                 timestamp: DateTime.now(),
               );
             });
-            _clearStateAfterDelay(key);
           }
         } else if (key.contains('dali_override_get')) {
           if (cleanResponse.contains(',') && cleanResponse.split(',').length == 3) {
@@ -147,7 +143,6 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                 timestamp: DateTime.now(),
               );
             });
-            _clearStateAfterDelay(key);
           }
         } else if (key.contains('radar_cfg_get')) {
           if (cleanResponse.contains(',') && cleanResponse.split(',').length == 4) {
@@ -159,7 +154,6 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                 timestamp: DateTime.now(),
               );
             });
-            _clearStateAfterDelay(key);
           }
         } else if (key.contains('radar_enable_get')) {
           if (RegExp(r'^[01]$').hasMatch(cleanResponse)) {
@@ -170,7 +164,6 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                 timestamp: DateTime.now(),
               );
             });
-            _clearStateAfterDelay(key);
           }
         } else if (key.contains('sub_get')) {
           // Handle subscription list - this comes as multiple lines
@@ -195,7 +188,6 @@ class _BlocMainScreenState extends State<BlocMainScreen>
               timestamp: DateTime.now(),
             );
           });
-          _clearStateAfterDelay(key);
         } else if (cleanResponse == '\$ok' && key.contains('sub_get')) {
           // Mark subscription get as complete
           setState(() {
@@ -204,18 +196,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
               timestamp: DateTime.now(),
             );
           });
-          _clearStateAfterDelay(key);
         }
-      }
-    });
-  }
-
-  void _clearStateAfterDelay(String key) {
-    Timer(const Duration(seconds: 2), () {
-      if (mounted) {
-        setState(() {
-          _commandStates.remove(key);
-        });
       }
     });
   }
@@ -803,6 +784,65 @@ class _BlocMainScreenState extends State<BlocMainScreen>
             ),
             const SizedBox(height: 16),
 
+            // Current Subscriptions Display
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Text(
+                          'Current Subscriptions',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.add),
+                          tooltip: 'Add subscription',
+                          onPressed: () => _showAddSubscriptionDialog(context, device),
+                        ),
+                      ],
+                    ),
+                    const Divider(),
+                    if (state.selectedDeviceSubscriptions.isEmpty)
+                      const Text('None'),
+                    if (state.selectedDeviceSubscriptions.isNotEmpty)
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: state.selectedDeviceSubscriptions.map((addr) => Chip(
+                          label: Text(
+                            '0x${addr.toRadixString(16).padLeft(4, '0').toUpperCase()}',
+                            style: const TextStyle(fontFamily: 'monospace'),
+                          ),
+                          deleteIcon: addr == device.groupAddress ? null : const Icon(Icons.close, size: 18),
+                          onDeleted: addr == device.groupAddress
+                              ? null
+                              : () {
+                                  _executeCommand(
+                                    context,
+                                    'mesh/device/sub/remove ${device.addressHex} 0x${addr.toRadixString(16)} 3000',
+                                    stateKey: 'sub_remove_${device.address}_$addr',
+                                  );
+                                  Future.delayed(const Duration(seconds: 1), () {
+                                    if (mounted) {
+                                      context.read<provisioner.ProvisionerBloc>().add(
+                                            provisioner.SelectDevice(device),
+                                          );
+                                    }
+                                  });
+                                },
+                        )).toList(),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
             // Device Resources Table (Leshan-style)
             Card(
               child: Column(
@@ -928,26 +968,6 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                           ),
                         ],
                         'Device Label',
-                      ),
-                      _buildResourceRow(
-                        context,
-                        'identify',
-                        'Physical Identify',
-                        'W',
-                        [
-                          Tooltip(
-                            message: 'Make the device identify itself through the health model.\n'
-                                    '0 = off, 1-255 = duration in seconds',
-                            child: _buildActionButton(
-                              context,
-                              'SET',
-                              Icons.lightbulb,
-                              () => _showIdentifyDialog(context, device),
-                              stateKey: 'identify_set_${device.address}',
-                            ),
-                          ),
-                        ],
-                        null,
                       ),
                       _buildResourceRow(
                         context,
@@ -1248,66 +1268,6 @@ class _BlocMainScreenState extends State<BlocMainScreen>
               ),
             ),
 
-            const SizedBox(height: 16),
-
-            // Current Subscriptions Display
-            if (state.selectedDeviceSubscriptions.isNotEmpty) ...[
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Text(
-                            'Current Subscriptions',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(width: 16),
-                          Tooltip(
-                            message: 'Group addresses this device is subscribed to.\n'
-                                    'The device will respond to messages sent to these addresses.',
-                            child: Icon(
-                              Icons.info_outline,
-                              size: 18,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Divider(),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: state.selectedDeviceSubscriptions.map((addr) => Chip(
-                          label: Text(
-                            '0x${addr.toRadixString(16).padLeft(4, '0').toUpperCase()}',
-                            style: const TextStyle(fontFamily: 'monospace'),
-                          ),
-                          deleteIcon: addr == device.groupAddress ? null : const Icon(Icons.close, size: 18),
-                          onDeleted: addr == device.groupAddress ? null : () {
-                            _executeCommand(
-                              context,
-                              'mesh/device/sub/remove ${device.addressHex} 0x${addr.toRadixString(16)} 3000',
-                              stateKey: 'sub_remove_${device.address}_$addr',
-                            );
-                            // Refresh subscriptions after removal
-                            Future.delayed(const Duration(seconds: 1), () {
-                              if (mounted) {
-                                context.read<provisioner.ProvisionerBloc>().add(
-                                  provisioner.SelectDevice(device),
-                                );
-                              }
-                            });
-                          },
-                        )).toList(),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
           ],
         ),
       ),
@@ -1494,26 +1454,19 @@ class _BlocMainScreenState extends State<BlocMainScreen>
       provisioner.SendConsoleCommand(command),
     );
 
-    // Set up a timer to check for response
-    Timer(const Duration(seconds: 3), () {
-      if (mounted && _commandStates[key]?.status == CommandStatus.loading) {
-        setState(() {
-          _commandStates[key] = CommandState(
-            status: CommandStatus.failure,
-            timestamp: DateTime.now(),
-          );
-        });
-
-        // Clear the state after 2 seconds
-        Timer(const Duration(seconds: 2), () {
-          if (mounted) {
-            setState(() {
-              _commandStates.remove(key);
-            });
-          }
-        });
-      }
-    });
+    if (!command.contains('sub/get')) {
+      // Set up a timer to check for response
+      Timer(const Duration(seconds: 3), () {
+        if (mounted && _commandStates[key]?.status == CommandStatus.loading) {
+          setState(() {
+            _commandStates[key] = CommandState(
+              status: CommandStatus.failure,
+              timestamp: DateTime.now(),
+            );
+          });
+        }
+      });
+    }
   }
 
   // Dialog methods
@@ -1931,7 +1884,10 @@ class _BlocMainScreenState extends State<BlocMainScreen>
           decoration: const InputDecoration(
             labelText: 'Label',
             hintText: 'Enter device label',
+            helperText: 'Max 32 characters, no spaces',
           ),
+          maxLength: 32,
+          inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'\s'))],
         ),
         actions: [
           TextButton(
@@ -2111,53 +2067,58 @@ class _BlocMainScreenState extends State<BlocMainScreen>
   }
 
   Future<void> _showAddSubscriptionDialog(BuildContext context, MeshDevice device) async {
-    final controller = TextEditingController();
-    final groupAddr = await showDialog<int>(
+    final bloc = context.read<provisioner.ProvisionerBloc>();
+    final others = bloc.state.provisionedDevices.where((d) => d.address != device.address).toList();
+    MeshDevice? selected;
+
+    final result = await showDialog<MeshDevice>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Add Group Subscription'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Enter group address to subscribe to:'),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              decoration: const InputDecoration(
-                labelText: 'Group Address',
-                hintText: 'C000-FEFF',
-                prefixText: '0x',
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setState) => AlertDialog(
+            title: const Text('Link Device'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: others.length,
+                itemBuilder: (context, index) {
+                  final d = others[index];
+                  return ListTile(
+                    title: Text(d.label ?? d.addressHex),
+                    subtitle: Text('Group: ${d.groupAddressHex}'),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.lightbulb),
+                      tooltip: 'Identify',
+                      onPressed: () => _executeCommand(
+                        context,
+                        'mesh/device/identify/set ${d.addressHex} 5 3000',
+                        stateKey: 'identify_set_${d.address}',
+                      ),
+                    ),
+                    selected: selected?.address == d.address,
+                    onTap: () => setState(() => selected = d),
+                  );
+                },
               ),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[0-9a-fA-F]')),
-                LengthLimitingTextInputFormatter(4),
-              ],
             ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: selected == null ? null : () => Navigator.pop(dialogContext, selected),
+                child: const Text('Add'),
+              ),
+            ],
           ),
-          FilledButton(
-            onPressed: () {
-              final hex = controller.text;
-              if (hex.length == 4) {
-                final addr = int.tryParse(hex, radix: 16);
-                if (addr != null && addr >= 0xC000 && addr <= 0xFEFF) {
-                  Navigator.pop(dialogContext, addr);
-                }
-              }
-            },
-            child: const Text('Add'),
-          ),
-        ],
-      ),
+        );
+      },
     );
 
-    if (groupAddr != null && mounted) {
-      context.read<provisioner.ProvisionerBloc>().add(provisioner.AddSubscription(device.address, groupAddr));
+    if (result != null && mounted) {
+      bloc.add(provisioner.AddSubscription(device.address, result.groupAddress));
     }
   }
 }
