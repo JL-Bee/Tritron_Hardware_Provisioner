@@ -21,8 +21,8 @@ class BlocProvisionerApp extends StatelessWidget {
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
           useMaterial3: true,
-          cardTheme: const CardTheme(surfaceTintColor: Colors.transparent),
-          dialogTheme: const DialogTheme(surfaceTintColor: Colors.transparent),
+          cardTheme: const CardThemeData(surfaceTintColor: Colors.transparent),
+          dialogTheme: const DialogThemeData(surfaceTintColor: Colors.transparent),
           appBarTheme: const AppBarTheme(surfaceTintColor: Colors.transparent),
         ),
         darkTheme: ThemeData(
@@ -31,8 +31,8 @@ class BlocProvisionerApp extends StatelessWidget {
             brightness: Brightness.dark,
           ),
           useMaterial3: true,
-          cardTheme: const CardTheme(surfaceTintColor: Colors.transparent),
-          dialogTheme: const DialogTheme(surfaceTintColor: Colors.transparent),
+          cardTheme: const CardThemeData(surfaceTintColor: Colors.transparent),
+          dialogTheme: const DialogThemeData(surfaceTintColor: Colors.transparent),
           appBarTheme: const AppBarTheme(surfaceTintColor: Colors.transparent),
         ),
         debugShowCheckedModeBanner: false,
