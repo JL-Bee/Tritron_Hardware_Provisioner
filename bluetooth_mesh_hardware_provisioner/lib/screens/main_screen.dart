@@ -2092,7 +2092,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                       tooltip: 'Identify',
                       onPressed: () => _executeCommand(
                         context,
-                        'mesh/device/identify/set ${d.addressHex} 5 3000',
+                        'mesh/dali_lc/identify/set ${d.addressHex} 5 3000',
                         stateKey: 'identify_set_${d.address}',
                       ),
                     ),
