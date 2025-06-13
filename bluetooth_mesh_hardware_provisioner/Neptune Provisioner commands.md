@@ -36,13 +36,13 @@ Removes every device from the local database (without unprovisioning) and then r
 #### Args  🛠️
 None.
 
-#### Output  ✨ 
+#### Output  ✨
 None.
 
-#### Return  ↩️ 
+#### Return  ↩️
 Always `$ok`.
-  
-#### Example  🧪 
+
+#### Example  🧪
 
 ```c
 mesh/factory_reset
@@ -84,7 +84,7 @@ mesh/provision/provision 0c305584745b4c09b3cfaa7b8ba483f6
 ```
 ---
 ## `provision/result/get`
-Returns the result of the last provision task. Is reset at the begin of a new provision task. 
+Returns the result of the last provision task. Is reset at the begin of a new provision task.
 If the task is still busy in progress, or no task has finished since boot, it returns -3 (ESRCH).
 #### Args  🛠️
 None
@@ -93,7 +93,7 @@ None
 0 when provision task has finished succesfully, or a negative errno code on failure.
 
 #### Return  ↩️
-Returns `$error` when no provision task has finished, or `$ok` if it has (no matter if it was successful or not). 
+Returns `$error` when no provision task has finished, or `$ok` if it has (no matter if it was successful or not).
 
 #### Example  🧪
 ```
@@ -109,7 +109,7 @@ Returns the address of the last provisioned node. Is reset at the begin of a new
 None
 
 #### Output  ✨
-Address of last provisioned device as an 4 character hex string prefixed with `0x`. Or nothing if provision task has not completed successfully. 
+Address of last provisioned device as an 4 character hex string prefixed with `0x`. Or nothing if provision task has not completed successfully.
 #### Return  ↩️
 `$ok` when the last provisioning task ended successfully, or `$error` when it didn't.
 #### Example  🧪
@@ -120,7 +120,7 @@ mesh/provision/last_addr/get
 ```
 ---
 ## `device/reset`
- Unprovisions a device and removes it from the provisioner's database. The unprovision state can later be requested through. 
+ Unprovisions a device and removes it from the provisioner's database. The unprovision state can later be requested through.
 
 #### Args  🛠️
 1. **Node Address**: Address of the node to reset.
@@ -128,12 +128,12 @@ mesh/provision/last_addr/get
 
 >[!tip] About timeouts
 > When timeout is 0, the command returns `$ok` after scheduling the task. When the timeout is greater than zero, the task blocks and waits for the timeout to expire, or the task to end. When the task ended successfully, it returns an `$ok`, or an `$error` when the timeout expired, or the task failed.
-> 
+>
 > When using a command for a **get** message, the timeout must be **greater than** 0. When running a command that sends something using a **group address**, the timeout must be 0. For other tasks with a timeout targeting a single device, it is recommended to have a timeout greater than 0 to ensure the message has been received correctly.
-> 
+>
 > The recommended default timeout value is 3000 ms.
 #### Output  ✨
-None. 
+None.
 
 #### Return  ↩️
 With timeout 0, it returns `$ok` if the task was scheduled successfully, or `$error` if it didn't.
@@ -149,7 +149,7 @@ mesh/device/reset 0x0003 3000
 Removes a device from the provisioner database **without** unprovisioning them.
 #### Args  🛠️
 1. **Node Address**: Address of the node to remove.
-  
+
 #### Output  ✨
 None
 
@@ -160,28 +160,28 @@ None
 
 ```c
 mesh/device/remove 0x0003
-~>$ok 
+~>$ok
 ```
 ---
 ## `device/label/get`
 Get the device label stored that is in the provisioners database.
-  
+
 #### Args  🛠️
 1. **Node Address**: Address of the node whose label to get.
-  
+
 #### Output  ✨
-The label  
+The label
 
 #### Return  ↩️
 `$ok` if the task ended successfully, or `$error` if it didn't.
-  
+
 
 #### Example  🧪
 
 ```c
 mesh/device/label/get 3
 ~>"Hello-world"
-~>$ok  
+~>$ok
 ```
 ---
 ## `device/label/set`
@@ -192,7 +192,7 @@ mesh/device/label/get 3
 
 #### Output  ✨
 None.
-  
+
 
 #### Return  ↩️
 `$ok` if the label was updated successfully, or `$error` if it wasn't
@@ -206,12 +206,12 @@ mesh/device/label/set 3 "Hello-world"
 ---
 ## `device/identify/set`
 Identify the device via the Bluetooth mesh health model. This feature can be ignored as it does the same as [[#dali_lc/identify/set]]. It's still present for development testing purposes.
-  
+
 
 #### Args  🛠️
 1. **Node Address**: Address to identify.
 2. **Short Duration**: The duration of the identify.
-	0: Identify off. 
+	0: Identify off.
 	1..255: identify duration in seconds.
 
 #### Output  ✨
@@ -219,7 +219,7 @@ None.
 
 #### Return  ↩️
 `$ok` if the identify set task has scheduled, or `$error` otherwise.
-  
+
 
 #### Example  🧪
 
@@ -234,7 +234,7 @@ Prints a list of all devices stored in the provisioners database. Each item cons
 None.
 #### Output  ✨
 Each item consists of the address, written as 4 character hex string prefixed with `0x`, and the UUID separated by a `,` (comma). If no devices were provisioned, the command will print nothing (besides the normal return).
-  
+
 #### Return  ↩️
 Always `$ok`.
 #### Example  🧪
@@ -247,7 +247,7 @@ mesh/device/list
 ```
 ---
 ## `device/sub/add`
-Add a group address to the subscribe list of a node. 
+Add a group address to the subscribe list of a node.
 #### Args  🛠️
 1. **Node Address**: Addressof the node to add the group address to.
 2. **Subscribe Address**: Group address that the node should subscribe to.
@@ -255,12 +255,12 @@ Add a group address to the subscribe list of a node.
 
 >[!tip] About timeouts
 > When timeout is 0, the command returns `$ok` after scheduling the task. When the timeout is greater than zero, the task blocks and waits for the timeout to expire, or the task to end. When the task ended successfully, it returns an `$ok`, or an `$error` when the timeout expired, or the task failed.
-> 
+>
 > When using a command for a **get** message, the timeout must be **greater than** 0. When running a command that sends something using a **group address**, the timeout must be 0. For other tasks with a timeout targeting a single device, it is recommended to have a timeout greater than 0 to ensure the message has been received correctly.
-> 
+>
 > The recommended default timeout value is 3000 ms.
 #### Output  ✨
-None. 
+None.
 
 #### Return  ↩️
 With timeout 0, it returns `$ok` if the task was scheduled successfully, or `$error` if it didn't.
@@ -274,7 +274,7 @@ mesh/device/sub/add 3 0xc002 3000
 ```
 ---
 ##  `device/sub/remove`
-Remove a group address from the subscribe list of a node.  
+Remove a group address from the subscribe list of a node.
 #### Args  🛠️
 1. **Node Address**: Addressof the node to remove the group address from.
 2. **Subscribe Address**: Group address that should be removed from the node's subscribe list.
@@ -282,9 +282,9 @@ Remove a group address from the subscribe list of a node.
 
 >[!tip] About timeouts
 > When timeout is 0, the command returns `$ok` after scheduling the task. When the timeout is greater than zero, the task blocks and waits for the timeout to expire, or the task to end. When the task ended successfully, it returns an `$ok`, or an `$error` when the timeout expired, or the task failed.
-> 
+>
 > When using a command for a **get** message, the timeout must be **greater than** 0. When running a command that sends something using a **group address**, the timeout must be 0. For other tasks with a timeout targeting a single device, it is recommended to have a timeout greater than 0 to ensure the message has been received correctly.
-> 
+>
 > The recommended default timeout value is 3000 ms.
 
 #### Output  ✨
@@ -308,9 +308,9 @@ Resets the subscribe list of a node, which only configures it to subscribe to it
 
 >[!tip] About timeouts
 > When timeout is 0, the command returns `$ok` after scheduling the task. When the timeout is greater than zero, the task blocks and waits for the timeout to expire, or the task to end. When the task ended successfully, it returns an `$ok`, or an `$error` when the timeout expired, or the task failed.
-> 
+>
 > When using a command for a **get** message, the timeout must be **greater than** 0. When running a command that sends something using a **group address**, the timeout must be 0. For other tasks with a timeout targeting a single device, it is recommended to have a timeout greater than 0 to ensure the message has been received correctly.
-> 
+>
 > The recommended default timeout value is 3000 ms.
 
 #### Output  ✨
@@ -352,16 +352,16 @@ Set the Dali LC idle configuration of the device, consisting of the arc level an
 #### Args  🛠️
 1. **Address**: The node or group address to publish this configuration to.
 2. **Idle arc** (0..254): The arc level of that the driver should take in the idle state.
-3. **Fade time**: The time it takes for the light to get to idle state. This fade time gets ignored by the **trigger fade out time**. 
+3. **Fade time**: The time it takes for the light to get to idle state. This fade time gets ignored by the **trigger fade out time**.
 4. **Timeout**: Timeout in milliseconds.
 
 >[!tip] About timeouts
 > When timeout is 0, the command returns `$ok` after scheduling the task. When the timeout is greater than zero, the task blocks and waits for the timeout to expire, or the task to end. When the task ended successfully, it returns an `$ok`, or an `$error` when the timeout expired, or the task failed.
-> 
+>
 > When using a command for a **get** message, the timeout must be **greater than** 0. When running a command that sends something using a **group address**, the timeout must be 0. For other tasks with a timeout targeting a single device, it is recommended to have a timeout greater than 0 to ensure the message has been received correctly.
-> 
+>
 > The recommended default timeout value is 3000 ms.
-  
+
 #### Output  ✨
 When timeout is greater than 0, and the task ended successfully before the timeout expired, it prints the **idle arc level** and **idle fade time** from the device acknowledgement. The values are printed as decimal values, separated by a `,` (comma), as shown below.
 ```
@@ -372,7 +372,7 @@ If timeout is 0, the timeout expired, or the task didn't end successfully, this 
 
 #### Return  ↩️
 With timeout 0, it returns `$ok` if the task was scheduled successfully, or `$error` if it didn't.
-With timeout greater than 0, it returns `$ok` if the task ended successfully before the timeout expired, or `$error` if it didn't.  
+With timeout greater than 0, it returns `$ok` if the task ended successfully before the timeout expired, or `$error` if it didn't.
 
 #### Example  🧪
 
@@ -391,11 +391,11 @@ Get the Dali LC idle configuration of the device, consisting of the arc level an
 
 >[!tip] About timeouts
 > When timeout is 0, the command returns `$ok` after scheduling the task. When the timeout is greater than zero, the task blocks and waits for the timeout to expire, or the task to end. When the task ended successfully, it returns an `$ok`, or an `$error` when the timeout expired, or the task failed.
-> 
+>
 > When using a command for a **get** message, the timeout must be **greater than** 0. When running a command that sends something using a **group address**, the timeout must be 0. For other tasks with a timeout targeting a single device, it is recommended to have a timeout greater than 0 to ensure the message has been received correctly.
-> 
+>
 > The recommended default timeout value is 3000 ms.
-  
+
 #### Output  ✨
 When the task ended successfully before the timeout expired, it prints the **idle arc level** and **idle fade time** from the device. The values are printed as decimal values, separated by a `,` (comma), as shown below.
 ```
@@ -405,7 +405,7 @@ When the task ended successfully before the timeout expired, it prints the **idl
 If the timeout expired, or the task didn't end successfully, this commands print nothing (besides the normal return).
 
 #### Return  ↩️
-It returns `$ok` if the task ended successfully before the timeout expired, or $error if it didn't. 
+It returns `$ok` if the task ended successfully before the timeout expired, or $error if it didn't.
 #### Example  🧪
 
 ```c
@@ -427,11 +427,11 @@ mesh/dali_lc/idle_cfg/get 3 3000
 
 >[!tip] About timeouts
 > When timeout is 0, the command returns `$ok` after scheduling the task. When the timeout is greater than zero, the task blocks and waits for the timeout to expire, or the task to end. When the task ended successfully, it returns an `$ok`, or an `$error` when the timeout expired, or the task failed.
-> 
+>
 > When using a command for a **get** message, the timeout must be **greater than** 0. When running a command that sends something using a **group address**, the timeout must be 0. For other tasks with a timeout targeting a single device, it is recommended to have a timeout greater than 0 to ensure the message has been received correctly.
-> 
+>
 > The recommended default timeout value is 3000 ms.
-  
+
 #### Output  ✨
 When timeout is greater than 0, and the task ended successfully before the timeout expired, it prints the **arc level**, **fade in time**, **fade out time**, and **hold time** from the device acknowledgement. The values are printed as decimal values, separated by a `,` (comma), as shown below.
 ```
@@ -441,12 +441,12 @@ When timeout is greater than 0, and the task ended successfully before the timeo
 If timeout is 0, the timeout expired, or the task didn't end successfully, this commands print nothing (besides the normal return).
 #### Return  ↩️
 With timeout 0, it returns `$ok` if the task was scheduled successfully, or `$error` if it didn't.
-With timeout greater than 0, it returns `$ok` if the task ended successfully before the timeout expired, or `$error` if it didn't.  
+With timeout greater than 0, it returns `$ok` if the task ended successfully before the timeout expired, or `$error` if it didn't.
 
 #### Example  🧪
 
 ```c
-mesh/dali_lc/trig_cfg/set 3 254 0 7 60 3000
+mesh/dali_lc/trigger_cfg/set 3 254 0 7 60 3000
 ~>254,0,7,60
 ~>$ok
 ```
@@ -459,11 +459,11 @@ Get the Dali LC trigger configuration of the device, consisting of the arc level
 
 >[!tip] About timeouts
 > When timeout is 0, the command returns `$ok` after scheduling the task. When the timeout is greater than zero, the task blocks and waits for the timeout to expire, or the task to end. When the task ended successfully, it returns an `$ok`, or an `$error` when the timeout expired, or the task failed.
-> 
+>
 > When using a command for a **get** message, the timeout must be **greater than** 0. When running a command that sends something using a **group address**, the timeout must be 0. For other tasks with a timeout targeting a single device, it is recommended to have a timeout greater than 0 to ensure the message has been received correctly.
-> 
+>
 > The recommended default timeout value is 3000 ms.
-  
+
 #### Output  ✨
 When the task ended successfully before the timeout expired,it prints the **arc level**, **fade in time**, **fade out time**, and **hold time** from the device. The values are printed as decimal values, separated by a `,` (comma), as shown below.
 ```
@@ -472,11 +472,11 @@ When the task ended successfully before the timeout expired,it prints the **arc 
 
 If the timeout expired, or the task didn't end successfully, this commands print nothing (besides the normal return).
 #### Return  ↩️
-It returns `$ok` if the task ended successfully before the timeout expired, or $error if it didn't. 
+It returns `$ok` if the task ended successfully before the timeout expired, or $error if it didn't.
 #### Example  🧪
 
 ```c
-mesh/dali_lc/trig_cfg/get 3 3000
+mesh/dali_lc/trigger_cfg/get 3 3000
 ~>254,0,7,60
 ~>$ok
 ```
@@ -487,24 +487,24 @@ Make the device identify itself through the Dali LC module. Identify has the hig
 #### Args  🛠️
 1. **Address**: The node or group address to publish the command to.
 2. **Duration**: The duration of the identify.
-	0: Identify off. 
+	0: Identify off.
 	\[1..65534\]: Identify duration in seconds.
 	65535: Identify lasts until next reboot.
 3. **Timeout**: Timeout in milliseconds.
 
 >[!tip] About timeouts
 > When timeout is 0, the command returns `$ok` after scheduling the task. When the timeout is greater than zero, the task blocks and waits for the timeout to expire, or the task to end. When the task ended successfully, it returns an `$ok`, or an `$error` when the timeout expired, or the task failed.
-> 
+>
 > When using a command for a **get** message, the timeout must be **greater than** 0. When running a command that sends something using a **group address**, the timeout must be 0. For other tasks with a timeout targeting a single device, it is recommended to have a timeout greater than 0 to ensure the message has been received correctly.
-> 
+>
 > The recommended default timeout value is 3000 ms.
-  
+
 #### Output  ✨
 When timeout is greater than 0, and the task ended successfully before the timeout expired, it prints the remaining time (duration) from the device acknowledgement. The value is printed as decimal values.
 
 #### Return  ↩️
 With timeout 0, it returns `$ok` if the task was scheduled successfully, or `$error` if it didn't.
-With timeout greater than 0, it returns `$ok` if the task ended successfully before the timeout expired, or `$error` if it didn't.  
+With timeout greater than 0, it returns `$ok` if the task ended successfully before the timeout expired, or `$error` if it didn't.
 #### Example  🧪
 
 ```c
@@ -523,11 +523,11 @@ Get the remaining time of the Dali LC identify state.
 
 >[!tip] About timeouts
 > When timeout is 0, the command returns `$ok` after scheduling the task. When the timeout is greater than zero, the task blocks and waits for the timeout to expire, or the task to end. When the task ended successfully, it returns an `$ok`, or an `$error` when the timeout expired, or the task failed.
-> 
+>
 > When using a command for a **get** message, the timeout must be **greater than** 0. When running a command that sends something using a **group address**, the timeout must be 0. For other tasks with a timeout targeting a single device, it is recommended to have a timeout greater than 0 to ensure the message has been received correctly.
-> 
+>
 > The recommended default timeout value is 3000 ms.
-  
+
 #### Output  ✨
 If the task ended successfully before the timeout expired, the command prints the remaining identify time from the device. The value is printed as decimal values.
 
@@ -542,7 +542,7 @@ Remaining time value describes the following:
 | 65535    | Identify lasts until reboot.        |
 
 #### Return  ↩️
-It returns `$ok` if the task ended successfully before the timeout expired, or $error if it didn't. 
+It returns `$ok` if the task ended successfully before the timeout expired, or $error if it didn't.
 #### Example  🧪
 
 ```c
@@ -559,18 +559,18 @@ mesh/dali_lc/identify/get 3 3000
 2. **Arc level** (0..254): Arc level during the override period.
 3. **Fade Time**: Fade time to use when transitioning to override arc level.
 4. **Duration**: The duration of the identify.
-	0: Identify off. 
+	0: Identify off.
 	\[1..65534\]: Identify duration in seconds.
 	65535: Identify lasts until next reboot.
 5. **Timeout**: Timeout in milliseconds.
 
 >[!tip] About timeouts
 > When timeout is 0, the command returns `$ok` after scheduling the task. When the timeout is greater than zero, the task blocks and waits for the timeout to expire, or the task to end. When the task ended successfully, it returns an `$ok`, or an `$error` when the timeout expired, or the task failed.
-> 
+>
 > When using a command for a **get** message, the timeout must be **greater than** 0. When running a command that sends something using a **group address**, the timeout must be 0. For other tasks with a timeout targeting a single device, it is recommended to have a timeout greater than 0 to ensure the message has been received correctly.
-> 
+>
 > The recommended default timeout value is 3000 ms.
-  
+
 #### Output  ✨
 When timeout is greater than 0, and the task ended successfully before the timeout expired, it prints the arc level, fade time, and remaining time (duration) from the device acknowledgement. The values are printed as decimal values, separated by a `,` (comma), as shown below.
 ```
@@ -579,7 +579,7 @@ When timeout is greater than 0, and the task ended successfully before the timeo
 
 #### Return  ↩️
 With timeout 0, it returns `$ok` if the task was scheduled successfully, or `$error` if it didn't.
-With timeout greater than 0, it returns `$ok` if the task ended successfully before the timeout expired, or `$error` if it didn't.  
+With timeout greater than 0, it returns `$ok` if the task ended successfully before the timeout expired, or `$error` if it didn't.
 #### Example  🧪
 
 ```c
@@ -597,11 +597,11 @@ Get the arc level, fade time and remaining time of the active override.
 
 >[!tip] About timeouts
 > When timeout is 0, the command returns `$ok` after scheduling the task. When the timeout is greater than zero, the task blocks and waits for the timeout to expire, or the task to end. When the task ended successfully, it returns an `$ok`, or an `$error` when the timeout expired, or the task failed.
-> 
+>
 > When using a command for a **get** message, the timeout must be **greater than** 0. When running a command that sends something using a **group address**, the timeout must be 0. For other tasks with a timeout targeting a single device, it is recommended to have a timeout greater than 0 to ensure the message has been received correctly.
-> 
+>
 > The recommended default timeout value is 3000 ms.
-  
+
 #### Output  ✨
 If the task ended successfully before the timeout expired, the command prints the arc level, used fade time, and remaining time from the device. The values are printed as decimal values, separated by a `,` (comma), as shown below.
 
@@ -620,9 +620,9 @@ Remaining time value describes the following:
 
 If the override is inactive, the arc level and fade time are `255`.
 
-If the timeout expired, or the task didn't end successfully, this commands print nothing (besides the normal return). 
+If the timeout expired, or the task didn't end successfully, this commands print nothing (besides the normal return).
 #### Return  ↩️
-It returns `$ok` if the task ended successfully before the timeout expired, or $error if it didn't. 
+It returns `$ok` if the task ended successfully before the timeout expired, or $error if it didn't.
 #### Example  🧪
 
 ```c
@@ -644,9 +644,9 @@ mesh/dali_lc/identify/get 3 3000
 
 >[!tip] About timeouts
 > When timeout is 0, the command returns `$ok` after scheduling the task. When the timeout is greater than zero, the task blocks and waits for the timeout to expire, or the task to end. When the task ended successfully, it returns an `$ok`, or an `$error` when the timeout expired, or the task failed.
-> 
+>
 > When using a command for a **get** message, the timeout must be **greater than** 0. When running a command that sends something using a **group address**, the timeout must be 0. For other tasks with a timeout targeting a single device, it is recommended to have a timeout greater than 0 to ensure the message has been received correctly.
-> 
+>
 > The recommended default timeout value is 3000 ms.
 #### Output  ✨
 When timeout is greater than 0, and the task ended successfully before the timeout expired, it prints the threshold band, cross count threshold, sample interval, and buffer dept from the device acknowledgement. The values are printed as decimal values, separated by a `,` (comma), as shown below.
@@ -657,7 +657,7 @@ When timeout is greater than 0, and the task ended successfully before the timeo
 If timeout is 0, the timeout expired, or the task didn't end successfully, this commands print nothing (besides the normal return).
 #### Return  ↩️
 With timeout 0, it returns `$ok` if the task was scheduled successfully, or `$error` if it didn't.
-With timeout greater than 0, it returns `$ok` if the task ended successfully before the timeout expired, or `$error` if it didn't.  
+With timeout greater than 0, it returns `$ok` if the task ended successfully before the timeout expired, or `$error` if it didn't.
 
 #### Example  🧪
 
@@ -676,11 +676,11 @@ mesh/radar/cfg/set 3 210 31 5 500 3000
 
 >[!tip] About timeouts
 > When timeout is 0, the command returns `$ok` after scheduling the task. When the timeout is greater than zero, the task blocks and waits for the timeout to expire, or the task to end. When the task ended successfully, it returns an `$ok`, or an `$error` when the timeout expired, or the task failed.
-> 
+>
 > When using a command for a **get** message, the timeout must be **greater than** 0. When running a command that sends something using a **group address**, the timeout must be 0. For other tasks with a timeout targeting a single device, it is recommended to have a timeout greater than 0 to ensure the message has been received correctly.
-> 
+>
 > The recommended default timeout value is 3000 ms.
-  
+
 #### Output  ✨
 When the task ended successfully before the timeout expired, it prints the threshold band, cross count threshold, sample interval, and buffer dept from the device. The values are printed as decimal values, separated by a `,` (comma), as shown below.
 ```
@@ -689,7 +689,7 @@ When the task ended successfully before the timeout expired, it prints the thres
 
 If the timeout expired, or the task didn't end successfully, this commands print nothing (besides the normal return).
 #### Return  ↩️
-It returns `$ok` if the task ended successfully before the timeout expired, or $error if it didn't. 
+It returns `$ok` if the task ended successfully before the timeout expired, or $error if it didn't.
 #### Example  🧪
 
 ```c
@@ -708,9 +708,9 @@ Enable or disable the radar module. When disabled, the radar module will not pub
 
 >[!tip] About timeouts
 > When timeout is 0, the command returns `$ok` after scheduling the task. When the timeout is greater than zero, the task blocks and waits for the timeout to expire, or the task to end. When the task ended successfully, it returns an `$ok`, or an `$error` when the timeout expired, or the task failed.
-> 
+>
 > When using a command for a **get** message, the timeout must be **greater than** 0. When running a command that sends something using a **group address**, the timeout must be 0. For other tasks with a timeout targeting a single device, it is recommended to have a timeout greater than 0 to ensure the message has been received correctly.
-> 
+>
 > The recommended default timeout value is 3000 ms.
 #### Output  ✨
 When timeout is greater than 0, and the task ended successfully before the timeout expired, it prints the enabled state from the device acknowledgement. The value is printed as a decimal boolean.
@@ -718,7 +718,7 @@ When timeout is greater than 0, and the task ended successfully before the timeo
 If timeout is 0, the timeout expired, or the task didn't end successfully, this commands print nothing (besides the normal return).
 #### Return  ↩️
 With timeout 0, it returns `$ok` if the task was scheduled successfully, or `$error` if it didn't.
-With timeout greater than 0, it returns `$ok` if the task ended successfully before the timeout expired, or `$error` if it didn't.  
+With timeout greater than 0, it returns `$ok` if the task ended successfully before the timeout expired, or `$error` if it didn't.
 
 #### Example  🧪
 
@@ -727,7 +727,7 @@ mesh/radar/enable/set 3 1 3000
 ~>1
 ~>$ok
 ```
-  
+
 ---
 ## `radar/enable/get`
 
@@ -738,17 +738,17 @@ Get the enable state of the radar module.
 
 >[!tip] About timeouts
 > When timeout is 0, the command returns `$ok` after scheduling the task. When the timeout is greater than zero, the task blocks and waits for the timeout to expire, or the task to end. When the task ended successfully, it returns an `$ok`, or an `$error` when the timeout expired, or the task failed.
-> 
+>
 > When using a command for a **get** message, the timeout must be **greater than** 0. When running a command that sends something using a **group address**, the timeout must be 0. For other tasks with a timeout targeting a single device, it is recommended to have a timeout greater than 0 to ensure the message has been received correctly.
-> 
+>
 > The recommended default timeout value is 3000 ms.
-  
+
 #### Output  ✨
 When the task ended successfully before the timeout expired, it prints the radar enable state from the device. The value is printed as a decimal boolean.
 
 If the timeout expired, or the task didn't end successfully, this commands print nothing (besides the normal return).
 #### Return  ↩️
-It returns `$ok` if the task ended successfully before the timeout expired, or $error if it didn't. 
+It returns `$ok` if the task ended successfully before the timeout expired, or $error if it didn't.
 #### Example  🧪
 
 ```c
