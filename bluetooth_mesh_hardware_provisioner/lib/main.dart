@@ -1,4 +1,4 @@
-// lib/main_bloc.dart
+// lib/main.dart
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -21,6 +21,9 @@ class BlocProvisionerApp extends StatelessWidget {
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
           useMaterial3: true,
+          cardTheme: const CardTheme(surfaceTintColor: Colors.transparent),
+          dialogTheme: const DialogTheme(surfaceTintColor: Colors.transparent),
+          appBarTheme: const AppBarTheme(surfaceTintColor: Colors.transparent),
         ),
         darkTheme: ThemeData(
           colorScheme: ColorScheme.fromSeed(
@@ -28,6 +31,9 @@ class BlocProvisionerApp extends StatelessWidget {
             brightness: Brightness.dark,
           ),
           useMaterial3: true,
+          cardTheme: const CardTheme(surfaceTintColor: Colors.transparent),
+          dialogTheme: const DialogTheme(surfaceTintColor: Colors.transparent),
+          appBarTheme: const AppBarTheme(surfaceTintColor: Colors.transparent),
         ),
         debugShowCheckedModeBanner: false,
         home: const BlocMainScreen(),
