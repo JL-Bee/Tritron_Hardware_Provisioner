@@ -670,71 +670,53 @@ class _BlocMainScreenState extends State<BlocMainScreen>
           if (state.provisionedDevices.isEmpty)
             const Padding(
               padding: EdgeInsets.all(32),
-              child: Center(
-                child: Text('No provisioned devices'),
-              ),
+              child: Center(child: Text('No provisioned devices')),
             )
           else
-            ...state.provisionedDevices.map((device) => Card(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  child: SelectableText(
-                    device.address.toRadixString(16).toUpperCase(),
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
-                  ),
-                ),
-                title: SelectableText('Device ${device.addressHex}'),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: DataTable(
+                columnSpacing: 12,
+                columns: const [
+                  DataColumn(label: Text('Device')),
+                  DataColumn(label: Text('Group')),
+                  DataColumn(label: Text('UUID')),
+                  DataColumn(label: Text('Actions')),
+                ],
+                rows: state.provisionedDevices.map((device) {
+                  return DataRow(cells: [
+                    DataCell(Text(device.label ?? device.addressHex)),
+                    DataCell(SelectableText(device.groupAddressHex)),
+                    DataCell(SizedBox(
+                      width: 160,
+                      child: SelectableText(
+                        device.uuid,
+                        maxLines: 1,
+                        style: const TextStyle(fontFamily: 'monospace'),
+                      ),
+                    )),
+                    DataCell(Row(
                       children: [
-                        const Text('Group: '),
-                        SelectableText(
-                          device.groupAddressHex,
-                          style: const TextStyle(fontFamily: 'monospace'),
+                        IconButton(
+                          icon: const Icon(Icons.settings),
+                          tooltip: 'Settings',
+                          onPressed: () {
+                            context.read<provisioner.ProvisionerBloc>().add(provisioner.SelectDevice(device));
+                            _tabController.animateTo(1);
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          tooltip: 'Unprovision',
+                          color: Colors.red,
+                          onPressed: () => _confirmUnprovision(context, device),
                         ),
                       ],
-                    ),
-                    Row(
-                      children: [
-                        const Text('UUID: '),
-                        Expanded(
-                          child: SelectableText(
-                            device.uuid,
-                            style: const TextStyle(fontFamily: 'monospace'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                isThreeLine: true,
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.info_outline),
-                      onPressed: () {
-                        context.read<provisioner.ProvisionerBloc>().add(provisioner.SelectDevice(device));
-                        _tabController.animateTo(1);
-                      },
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline),
-                      onPressed: () => _confirmUnprovision(context, device),
-                      color: Colors.red,
-                    ),
-                  ],
-                ),
-                onTap: () {
-                  context.read<provisioner.ProvisionerBloc>().add(provisioner.SelectDevice(device));
-                  _tabController.animateTo(1);
-                },
+                    )),
+                  ]);
+                }).toList(),
               ),
-            )),
+            ),
         ],
       ),
     );
@@ -858,9 +840,20 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                         topRight: Radius.circular(12),
                       ),
                     ),
-                    child: const Text(
-                      'Device Resources',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    child: Row(
+                      children: [
+                        const Text(
+                          'Device Resources',
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        const Spacer(),
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.sync),
+                          label: const Text('Read All'),
+                          onPressed: () => _readAllParameters(context, device),
+                        ),
+                      ],
                     ),
                   ),
 
@@ -1055,9 +1048,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                           ),
                           const SizedBox(width: 4),
                           Tooltip(
-                            message: 'Set the idle state configuration.\n'
-                                    'Arc: light level in idle state (0-254)\n'
-                                    'Fade: transition time to idle state',
+                            message: 'Set the idle state configuration.',
                             child: _buildActionButton(
                               context,
                               'SET',
@@ -1092,10 +1083,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                           ),
                           const SizedBox(width: 4),
                           Tooltip(
-                            message: 'Configure trigger behavior (e.g., motion sensor).\n'
-                                    'Arc: light level when triggered (0-254)\n'
-                                    'Fade in/out: transition times\n'
-                                    'Hold: seconds to stay in trigger state (0=disabled)',
+                            message: 'Configure trigger behavior.',
                             child: _buildActionButton(
                               context,
                               'SET',
@@ -1169,10 +1157,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                           ),
                           const SizedBox(width: 4),
                           Tooltip(
-                            message: 'Manually override the light level.\n'
-                                    'Arc: override light level (0-254)\n'
-                                    'Fade: transition time\n'
-                                    'Duration: 0=off, 1-65534=seconds, 65535=until reboot',
+                            message: 'Manually override the light level.',
                             child: _buildActionButton(
                               context,
                               'SET',
@@ -1211,11 +1196,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                           ),
                           const SizedBox(width: 4),
                           Tooltip(
-                            message: 'Configure radar sensor parameters.\n'
-                                    'Threshold: voltage from baseline (0-1650mV)\n'
-                                    'Cross count: samples needed for detection (1-500)\n'
-                                    'Sample interval: time between samples (1-2047ms)\n'
-                                    'Buffer depth: number of samples (0-500)',
+                            message: 'Configure radar sensor parameters.',
                             child: _buildActionButton(
                               context,
                               'SET',
@@ -1250,8 +1231,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                           ),
                           const SizedBox(width: 4),
                           Tooltip(
-                            message: 'Enable or disable the radar sensor.\n'
-                                    'When disabled, no motion events are published',
+                            message: 'Enable or disable the radar sensor.',
                             child: _buildActionButton(
                               context,
                               'SET',
@@ -1470,6 +1450,26 @@ class _BlocMainScreenState extends State<BlocMainScreen>
     }
   }
 
+  void _readAllParameters(BuildContext context, MeshDevice device) {
+    final addr = device.addressHex;
+    _executeCommand(context, 'mesh/device/label/get $addr 3000',
+        stateKey: 'label_get_${device.address}');
+    _executeCommand(context, 'mesh/device/sub/get $addr 3000',
+        stateKey: 'sub_get_${device.address}');
+    _executeCommand(context, 'mesh/dali_lc/idle_cfg/get $addr 3000',
+        stateKey: 'dali_idle_get_${device.address}');
+    _executeCommand(context, 'mesh/dali_lc/trigger_cfg/get $addr 3000',
+        stateKey: 'dali_trigger_get_${device.address}');
+    _executeCommand(context, 'mesh/dali_lc/identify/get $addr 3000',
+        stateKey: 'dali_identify_get_${device.address}');
+    _executeCommand(context, 'mesh/dali_lc/override/get $addr 3000',
+        stateKey: 'dali_override_get_${device.address}');
+    _executeCommand(context, 'mesh/radar/cfg/get $addr 3000',
+        stateKey: 'radar_cfg_get_${device.address}');
+    _executeCommand(context, 'mesh/radar/enable/get $addr 3000',
+        stateKey: 'radar_enable_get_${device.address}');
+  }
+
   // Dialog methods
   Future<void> _showIdentifyDialog(BuildContext context, MeshDevice device) async {
     final durationController = TextEditingController(text: '10');
@@ -1478,20 +1478,23 @@ class _BlocMainScreenState extends State<BlocMainScreen>
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Device Identify'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Set identify duration in seconds:'),
-            const SizedBox(height: 16),
-            TextField(
-              controller: durationController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Duration (seconds)',
-                hintText: '0 = off, 1-254 = seconds',
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 320),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Set identify duration in seconds (0-254):'),
+              const SizedBox(height: 16),
+              TextField(
+                controller: durationController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Duration (seconds)',
+                  hintText: '0 = off, 1-254 = seconds',
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -1520,15 +1523,18 @@ class _BlocMainScreenState extends State<BlocMainScreen>
       context: context,
         builder: (dialogContext) => AlertDialog(
           title: const Text('DALI Idle Configuration'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Idle arc level defines the light level when no trigger is active.\n'
-                'Fade time controls how quickly the light transitions back to this level.',
-              ),
-              const SizedBox(height: 16),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 320),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Idle arc level defines the light level when no trigger is active.'
+                  '\nFade time controls how quickly the light transitions back to this level.'
+                  '\nArc: 0-254, Fade: 0-30',
+                ),
+                const SizedBox(height: 16),
               SliderInput(
                 label: 'Idle Arc Level',
                 min: 0,
@@ -1542,9 +1548,10 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                 max: 30,
                 controller: fadeController,
               ),
-            ],
+              ],
+            ),
           ),
-        actions: [
+          actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
@@ -1574,23 +1581,26 @@ class _BlocMainScreenState extends State<BlocMainScreen>
       context: context,
         builder: (dialogContext) => AlertDialog(
           title: const Text('DALI Trigger Configuration'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Trigger settings control how the light behaves when activated.'
-                  '\nArc level is the brightness on trigger, fade in/out define the '
-                  'transition durations, and hold time sets how long the trigger level '
-                  'stays active.',
-                ),
-                const SizedBox(height: 16),
-                SliderInput(
-                  label: 'Trigger Arc Level',
-                  min: 0,
-                  max: 254,
-                  controller: arcController,
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 320),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Trigger settings control how the light behaves when activated.'
+                    '\nArc level is the brightness on trigger, fade in/out define the '
+                    'transition durations, and hold time sets how long the trigger level '
+                    'stays active.'
+                    '\nArc: 0-254, Fade: 0-30, Hold: 0-65535',
+                  ),
+                  const SizedBox(height: 16),
+                  SliderInput(
+                    label: 'Trigger Arc Level',
+                    min: 0,
+                    max: 254,
+                    controller: arcController,
                 ),
                 const SizedBox(height: 16),
                 SliderInput(
@@ -1607,16 +1617,17 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                   controller: fadeOutController,
                 ),
                 const SizedBox(height: 16),
-                SliderInput(
-                  label: 'Hold Time (seconds)',
-                  min: 0,
-                  max: 65535,
-                  controller: holdTimeController,
-                ),
-              ],
+                  SliderInput(
+                    label: 'Hold Time (seconds)',
+                    min: 0,
+                    max: 65535,
+                    controller: holdTimeController,
+                  ),
+                ],
+              ),
             ),
           ),
-        actions: [
+          actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
@@ -1645,20 +1656,23 @@ class _BlocMainScreenState extends State<BlocMainScreen>
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('DALI Light Identify'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Set light identify duration:'),
-            const SizedBox(height: 16),
-            TextField(
-              controller: durationController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Duration',
-                hintText: '0=off, 1-65534=seconds, 65535=until reboot',
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 320),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Set light identify duration (0-65535 seconds):'),
+              const SizedBox(height: 16),
+              TextField(
+                controller: durationController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Duration',
+                  hintText: '0=off, 1-65534=seconds, 65535=until reboot',
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -1688,15 +1702,18 @@ class _BlocMainScreenState extends State<BlocMainScreen>
       context: context,
         builder: (dialogContext) => AlertDialog(
           title: const Text('DALI Manual Override'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Override temporarily forces the light to a specific level.'
-                '\nDuration defines how long the override is active.',
-              ),
-              const SizedBox(height: 16),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 320),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Override temporarily forces the light to a specific level.'
+                  '\nDuration defines how long the override is active.'
+                  '\nArc: 0-254, Fade: 0-30, Duration: 0-65535',
+                ),
+                const SizedBox(height: 16),
               SliderInput(
                 label: 'Arc Level',
                 min: 0,
@@ -1717,9 +1734,10 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                 max: 65535,
                 controller: durationController,
               ),
-            ],
+              ],
+            ),
           ),
-        actions: [
+          actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
@@ -1750,23 +1768,26 @@ class _BlocMainScreenState extends State<BlocMainScreen>
       context: context,
         builder: (dialogContext) => AlertDialog(
           title: const Text('Radar Configuration'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Radar parameters tune the motion sensor. Adjust the threshold '
-                  'band to set sensitivity, cross count for detection confidence, '
-                  'sample interval for polling rate, and buffer depth for history '
-                  'size.',
-                ),
-                const SizedBox(height: 16),
-                SliderInput(
-                  label: 'Threshold Band (mV)',
-                  min: 0,
-                  max: 1650,
-                  controller: bandController,
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 320),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Radar parameters tune the motion sensor. Adjust the threshold '
+                    'band to set sensitivity, cross count for detection confidence, '
+                    'sample interval for polling rate, and buffer depth for history '
+                    'size.'
+                    '\nBand: 0-1650mV, Cross: 1-500, Interval: 1-2047ms, Depth: 0-500',
+                  ),
+                  const SizedBox(height: 16),
+                  SliderInput(
+                    label: 'Threshold Band (mV)',
+                    min: 0,
+                    max: 1650,
+                    controller: bandController,
                 ),
                 const SizedBox(height: 16),
                 SliderInput(
@@ -1783,16 +1804,17 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                   controller: intervalController,
                 ),
                 const SizedBox(height: 16),
-                SliderInput(
-                  label: 'Buffer Depth',
-                  min: 0,
-                  max: 500,
-                  controller: depthController,
-                ),
-              ],
+                  SliderInput(
+                    label: 'Buffer Depth',
+                    min: 0,
+                    max: 500,
+                    controller: depthController,
+                  ),
+                ],
+              ),
             ),
           ),
-        actions: [
+          actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
@@ -1821,16 +1843,19 @@ class _BlocMainScreenState extends State<BlocMainScreen>
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Radar Enable State'),
-        content: StatefulBuilder(
-          builder: (context, setState) => Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SwitchListTile(
-                title: const Text('Enable Radar'),
-                value: enable,
-                onChanged: (value) => setState(() => enable = value),
-              ),
-            ],
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 320),
+          child: StatefulBuilder(
+            builder: (context, setState) => Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SwitchListTile(
+                  title: const Text('Enable Radar'),
+                  value: enable,
+                  onChanged: (value) => setState(() => enable = value),
+                ),
+              ],
+            ),
           ),
         ),
         actions: [

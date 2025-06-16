@@ -33,37 +33,42 @@ class _SliderInputState extends State<SliderInput> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        TextField(
-          controller: widget.controller,
-          keyboardType: TextInputType.number,
-          decoration: InputDecoration(
-            labelText: widget.label,
-            hintText: '${widget.min}-${widget.max}',
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 320),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: widget.controller,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              labelText: widget.label,
+              hintText: '${widget.min}-${widget.max}',
+              helperText: '${widget.min}-${widget.max}',
+            ),
+            onChanged: (text) {
+              final v = double.tryParse(text);
+              if (v != null) {
+                setState(() =>
+                    _value = v.clamp(widget.min.toDouble(), widget.max.toDouble()));
+              }
+            },
           ),
-          onChanged: (text) {
-            final v = double.tryParse(text);
-            if (v != null) {
-              setState(() => _value = v.clamp(widget.min.toDouble(), widget.max.toDouble()));
-            }
-          },
-        ),
-        Slider(
-          min: widget.min.toDouble(),
-          max: widget.max.toDouble(),
-          divisions: widget.max - widget.min,
-          value: _value.clamp(widget.min.toDouble(), widget.max.toDouble()),
-          label: _value.round().toString(),
-          onChanged: (val) {
-            setState(() {
-              _value = val;
-              widget.controller.text = val.round().toString();
-            });
-          },
-        ),
-      ],
+          Slider(
+            min: widget.min.toDouble(),
+            max: widget.max.toDouble(),
+            divisions: widget.max - widget.min,
+            value: _value.clamp(widget.min.toDouble(), widget.max.toDouble()),
+            label: _value.round().toString(),
+            onChanged: (val) {
+              setState(() {
+                _value = val;
+                widget.controller.text = val.round().toString();
+              });
+            },
+          ),
+        ],
+      ),
     );
   }
 }
