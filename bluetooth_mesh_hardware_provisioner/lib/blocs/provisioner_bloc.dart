@@ -35,6 +35,11 @@ class UnprovisionDevice extends ProvisionerEvent {
   UnprovisionDevice(this.device);
 }
 
+class RemoveDeviceFromDb extends ProvisionerEvent {
+  final MeshDevice device;
+  RemoveDeviceFromDb(this.device);
+}
+
 class AddSubscription extends ProvisionerEvent {
   final int nodeAddress;
   final int groupAddress;
@@ -286,6 +291,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     on<RefreshDeviceList>(_onRefreshDeviceList);
     on<ProvisionDevice>(_onProvisionDevice);
     on<UnprovisionDevice>(_onUnprovisionDevice);
+    on<RemoveDeviceFromDb>(_onRemoveDeviceFromDb);
     on<AddSubscription>(_onAddSubscription);
     on<RemoveSubscription>(_onRemoveSubscription);
     on<SelectDevice>(_onSelectDevice);
@@ -486,6 +492,37 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
         currentError: AppError(message: 'Reset error: $e'),
       ));
       _addActionResult('Unprovision device ${event.device.addressHex}', false, e.toString(), emit);
+    }
+  }
+
+  Future<void> _onRemoveDeviceFromDb(RemoveDeviceFromDb event, Emitter<ProvisionerState> emit) async {
+    if (_meshService == null) return;
+
+    emit(state.copyWith(
+      currentAction: ActionExecution(
+        action: 'Remove device ${event.device.addressHex}',
+      ),
+    ));
+
+    try {
+      final success = await _meshService!.removeDevice(event.device.address);
+      if (success) {
+        add(RefreshDeviceList());
+        if (state.selectedDevice?.address == event.device.address) {
+          emit(state.copyWith(selectedDevice: null));
+        }
+        _addActionResult('Remove device ${event.device.addressHex}', true, null, emit);
+      } else {
+        emit(state.copyWith(
+          currentError: AppError(message: 'Failed to remove device'),
+        ));
+        _addActionResult('Remove device ${event.device.addressHex}', false, null, emit);
+      }
+    } catch (e) {
+      emit(state.copyWith(
+        currentError: AppError(message: 'Remove error: $e'),
+      ));
+      _addActionResult('Remove device ${event.device.addressHex}', false, e.toString(), emit);
     }
   }
 

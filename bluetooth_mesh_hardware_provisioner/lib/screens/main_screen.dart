@@ -2052,16 +2052,10 @@ class _BlocMainScreenState extends State<BlocMainScreen>
       if (action == 'reset') {
         context.read<provisioner.ProvisionerBloc>().add(provisioner.UnprovisionDevice(device));
       } else if (action == 'remove') {
-        // Just remove from database without resetting the device
+        // Remove the device from the database
         context.read<provisioner.ProvisionerBloc>().add(
-          provisioner.SendConsoleCommand('mesh/device/remove 0x${device.address.toRadixString(16)}'),
+          provisioner.RemoveDeviceFromDb(device),
         );
-        // Refresh list after removal
-        Future.delayed(const Duration(milliseconds: 500), () {
-          if (mounted) {
-            context.read<provisioner.ProvisionerBloc>().add(provisioner.RefreshDeviceList());
-          }
-        });
       }
     }
   }
