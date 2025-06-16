@@ -208,6 +208,13 @@ Future<List<MeshDevice>> getProvisionedDevices() async {
     return result.success;
   }
 
+  /// Remove a device from the provisioner's database.
+  Future<bool> removeDevice(int address) async {
+    final result =
+        await executeCommand('mesh/device/remove 0x${address.toRadixString(16)}');
+    return result.success;
+  }
+
   /// Add group subscription
   Future<bool> addSubscription(int nodeAddr, int groupAddr) async {
     final result = await executeCommand(
