@@ -7,6 +7,7 @@ import '../blocs/provisioner_bloc.dart' as provisioner;
 import '../protocols/rtm_console_protocol.dart';
 import '../widgets/error_notification.dart';
 import '../widgets/bloc_console_widget.dart';
+import '../widgets/slider_input.dart';
 import '../models/serial_port_info.dart';
 import '../models/mesh_device.dart';
 import '../services/serial_port_service.dart' as serial;
@@ -1517,30 +1518,32 @@ class _BlocMainScreenState extends State<BlocMainScreen>
 
     final result = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('DALI Idle Configuration'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: arcController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Idle Arc Level',
-                hintText: '0-254',
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('DALI Idle Configuration'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Idle arc level defines the light level when no trigger is active.\n'
+                'Fade time controls how quickly the light transitions back to this level.',
               ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: fadeController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Fade Time',
-                hintText: '0-30 (see fade time table)',
+              const SizedBox(height: 16),
+              SliderInput(
+                label: 'Idle Arc Level',
+                min: 0,
+                max: 254,
+                controller: arcController,
               ),
-            ),
-          ],
-        ),
+              const SizedBox(height: 16),
+              SliderInput(
+                label: 'Fade Time',
+                min: 0,
+                max: 30,
+                controller: fadeController,
+              ),
+            ],
+          ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
@@ -1569,50 +1572,50 @@ class _BlocMainScreenState extends State<BlocMainScreen>
 
     final result = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('DALI Trigger Configuration'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: arcController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Trigger Arc Level',
-                  hintText: '0-254',
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('DALI Trigger Configuration'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Trigger settings control how the light behaves when activated.'
+                  '\nArc level is the brightness on trigger, fade in/out define the '
+                  'transition durations, and hold time sets how long the trigger level '
+                  'stays active.',
                 ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: fadeInController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Fade In Time',
-                  hintText: '0-30',
+                const SizedBox(height: 16),
+                SliderInput(
+                  label: 'Trigger Arc Level',
+                  min: 0,
+                  max: 254,
+                  controller: arcController,
                 ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: fadeOutController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Fade Out Time',
-                  hintText: '0-30',
+                const SizedBox(height: 16),
+                SliderInput(
+                  label: 'Fade In Time',
+                  min: 0,
+                  max: 30,
+                  controller: fadeInController,
                 ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: holdTimeController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Hold Time (seconds)',
-                  hintText: '0-65535',
+                const SizedBox(height: 16),
+                SliderInput(
+                  label: 'Fade Out Time',
+                  min: 0,
+                  max: 30,
+                  controller: fadeOutController,
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                SliderInput(
+                  label: 'Hold Time (seconds)',
+                  min: 0,
+                  max: 65535,
+                  controller: holdTimeController,
+                ),
+              ],
+            ),
           ),
-        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
@@ -1683,39 +1686,39 @@ class _BlocMainScreenState extends State<BlocMainScreen>
 
     final result = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('DALI Manual Override'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: arcController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Arc Level',
-                hintText: '0-254',
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('DALI Manual Override'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Override temporarily forces the light to a specific level.'
+                '\nDuration defines how long the override is active.',
               ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: fadeController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Fade Time',
-                hintText: '0-30',
+              const SizedBox(height: 16),
+              SliderInput(
+                label: 'Arc Level',
+                min: 0,
+                max: 254,
+                controller: arcController,
               ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: durationController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Duration',
-                hintText: '0=off, 1-65534=seconds, 65535=until reboot',
+              const SizedBox(height: 16),
+              SliderInput(
+                label: 'Fade Time',
+                min: 0,
+                max: 30,
+                controller: fadeController,
               ),
-            ),
-          ],
-        ),
+              const SizedBox(height: 16),
+              SliderInput(
+                label: 'Duration',
+                min: 0,
+                max: 65535,
+                controller: durationController,
+              ),
+            ],
+          ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
@@ -1745,50 +1748,50 @@ class _BlocMainScreenState extends State<BlocMainScreen>
 
     final result = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Radar Configuration'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: bandController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Threshold Band (mV)',
-                  hintText: '0-1650',
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Radar Configuration'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Radar parameters tune the motion sensor. Adjust the threshold '
+                  'band to set sensitivity, cross count for detection confidence, '
+                  'sample interval for polling rate, and buffer depth for history '
+                  'size.',
                 ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: crossController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Cross Count Threshold',
-                  hintText: '1-500',
+                const SizedBox(height: 16),
+                SliderInput(
+                  label: 'Threshold Band (mV)',
+                  min: 0,
+                  max: 1650,
+                  controller: bandController,
                 ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: intervalController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Sample Interval (ms)',
-                  hintText: '1-2047',
+                const SizedBox(height: 16),
+                SliderInput(
+                  label: 'Cross Count Threshold',
+                  min: 1,
+                  max: 500,
+                  controller: crossController,
                 ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: depthController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Buffer Depth',
-                  hintText: '0-500',
+                const SizedBox(height: 16),
+                SliderInput(
+                  label: 'Sample Interval (ms)',
+                  min: 1,
+                  max: 2047,
+                  controller: intervalController,
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                SliderInput(
+                  label: 'Buffer Depth',
+                  min: 0,
+                  max: 500,
+                  controller: depthController,
+                ),
+              ],
+            ),
           ),
-        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),

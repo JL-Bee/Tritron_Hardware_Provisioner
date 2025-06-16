@@ -31,6 +31,7 @@ A comprehensive Flutter application for provisioning and managing Bluetooth mesh
 - Subscribe address management
 - Publish configuration
 - Health status monitoring
+- Intuitive sliders for configuring idle, trigger, override and radar settings
 
 ### 💻 Console Interface
 - Raw command input for advanced users
