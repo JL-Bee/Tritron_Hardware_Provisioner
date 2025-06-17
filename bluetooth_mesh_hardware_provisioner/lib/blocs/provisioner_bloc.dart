@@ -9,6 +9,7 @@ import '../models/radar_info.dart';
 import '../services/serial_port_service.dart';
 import '../services/command_processor.dart';
 import '../services/mesh_command_service.dart';
+import '../services/device_cache_service.dart';
 
 
 // Events
@@ -20,6 +21,8 @@ class ConnectToPort extends ProvisionerEvent {
 }
 
 class Disconnect extends ProvisionerEvent {}
+
+class Reconnect extends ProvisionerEvent {}
 
 class ScanDevices extends ProvisionerEvent {}
 
@@ -285,8 +288,11 @@ class ActionExecution {
 // BLoC Implementation
 class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
   final SerialPortService _serialService = SerialPortService();
+  final DeviceCacheService _deviceCache = DeviceCacheService();
   CommandProcessor? _processor;
   MeshCommandService? _meshService;
+
+  SerialPortInfo? _lastPort;
 
   StreamSubscription? _serialStatusSubscription;
   StreamSubscription? _processedLineSubscription;
@@ -324,6 +330,9 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     on<_ProcessedLineReceived>(_onProcessedLineReceived);
     on<_PollProvisioningStatus>(_onPollProvisioningStatus);
     on<_FinalizeProvisioning>(_onFinalizeProvisioning);
+    on<Reconnect>(_onReconnect);
+
+    _loadCachedDevices();
   }
 
   Future<void> _onConnectToPort(ConnectToPort event, Emitter<ProvisionerState> emit) async {
@@ -332,6 +341,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     try {
       // Connect to serial port
       await _serialService.connect(event.port.portName);
+      _lastPort = event.port;
 
       // Set up command processor
       _processor = CommandProcessor(_serialService.dataStream);
@@ -347,6 +357,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
         if (status == SerialConnectionStatus.disconnected ||
             status == SerialConnectionStatus.error) {
           add(Disconnect());
+          add(Reconnect());
         }
       });
 
@@ -403,7 +414,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     _knownDeviceAddresses.clear();
     _provisionQueue.clear();
 
-    emit(ProvisionerState());
+    emit(ProvisionerState(provisionedDevices: state.provisionedDevices));
   }
 
   Future<void> _onScanDevices(ScanDevices event, Emitter<ProvisionerState> emit) async {
@@ -457,6 +468,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
       }
 
       emit(state.copyWith(provisionedDevices: adjusted));
+      unawaited(_deviceCache.saveDevices(adjusted));
     } catch (e) {
       emit(state.copyWith(
         currentError: AppError(message: 'Failed to refresh devices: $e'),
@@ -969,6 +981,20 @@ void _onProcessedLineReceived(_ProcessedLineReceived event, Emitter<ProvisionerS
   void _enqueueProvision(String uuid) {
     if (!_provisionQueue.contains(uuid)) {
       _provisionQueue.add(uuid);
+    }
+  }
+
+  Future<void> _loadCachedDevices() async {
+    final cached = await _deviceCache.loadDevices();
+    if (cached.isNotEmpty) {
+      emit(state.copyWith(provisionedDevices: cached));
+    }
+  }
+
+  void _onReconnect(Reconnect event, Emitter<ProvisionerState> emit) {
+    final port = _lastPort;
+    if (port != null) {
+      add(ConnectToPort(port));
     }
   }
 
