@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../blocs/provisioner_bloc.dart' as provisioner;
+import 'package:collection/collection.dart';
 import '../protocols/rtm_console_protocol.dart';
 import '../widgets/error_notification.dart';
 import '../widgets/bloc_console_widget.dart';
@@ -39,6 +40,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
   // Add these new fields for tracking command states
   final Map<String, CommandState> _commandStates = {};
   final Map<String, String> _commandResults = {};
+  List<int> _lastSubscriptions = [];
 
   @override
   void initState() {
@@ -789,6 +791,15 @@ class _BlocMainScreenState extends State<BlocMainScreen>
           if (lastEntry.type == provisioner.ConsoleEntryType.response) {
             _parseConsoleResponse(lastEntry.text);
           }
+        }
+
+        // Update displayed subscriptions when they change
+        if (!const ListEquality<int>().equals(_lastSubscriptions, state.selectedDeviceSubscriptions)) {
+          _lastSubscriptions = List<int>.from(state.selectedDeviceSubscriptions);
+          setState(() {
+            _commandResults['Subscriptions'] =
+                _lastSubscriptions.map((a) => '0x${a.toRadixString(16).padLeft(4, '0').toUpperCase()}').join(', ');
+          });
         }
       },
       child: SingleChildScrollView(
@@ -2245,7 +2256,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
 
   Future<void> _showAddSubscriptionDialog(BuildContext context, MeshDevice device) async {
     final bloc = context.read<provisioner.ProvisionerBloc>();
-    final others = bloc.state.provisionedDevices.where((d) => d.address != device.address).toList();
+    final others = bloc.state.provisionedDevices.toList();
     MeshDevice? selected;
 
     final result = await showDialog<MeshDevice>(
