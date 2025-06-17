@@ -283,6 +283,9 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
   /// provisioned. It is cancelled once provisioning completes or the bloc is
   /// disposed.
   Timer? _provisioningTimer;
+  /// Timer that periodically refreshes the device list to update heartbeat
+  /// information. Cancelled on disconnect.
+  Timer? _deviceListTimer;
 
   ProvisionerBloc() : super(ProvisionerState()) {
     on<ConnectToPort>(_onConnectToPort);
@@ -348,6 +351,13 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
       add(ScanDevices());
       add(RefreshDeviceList());
 
+      // Start periodic device list polling
+      _deviceListTimer?.cancel();
+      _deviceListTimer = Timer.periodic(
+        const Duration(seconds: 15),
+        (_) => add(RefreshDeviceList()),
+      );
+
     } catch (e) {
       emit(state.copyWith(
         connectionStatus: ConnectionStatus.error,
@@ -364,6 +374,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     _processedLineSubscription?.cancel();
     _nodeFoundSubscription?.cancel();
     _provisioningTimer?.cancel();
+    _deviceListTimer?.cancel();
 
     _meshService?.dispose();
     _processor?.dispose();
@@ -884,6 +895,7 @@ void _onProcessedLineReceived(_ProcessedLineReceived event, Emitter<ProvisionerS
     _processedLineSubscription?.cancel();
     _nodeFoundSubscription?.cancel();
     _provisioningTimer?.cancel();
+    _deviceListTimer?.cancel();
 
     _meshService?.dispose();
     _processor?.dispose();
