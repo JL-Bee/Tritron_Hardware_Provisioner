@@ -91,26 +91,38 @@ class SerialPortService {
       // Set up the reader with a timeout
       _reader = SerialPortReader(_port!, timeout: readTimeout);
 
-      // Start listening to incoming data
-      _reader!.stream.listen(
-        (data) {
-          // Convert bytes to string and emit
-          final text = String.fromCharCodes(data);
-          print('SerialPort: Received ${data.length} bytes: ${text.replaceAll('\n', '\\n').replaceAll('\r', '\\r')}');
-          _dataController?.add(text);
-        },
-        onError: (error) {
-          print('Serial read error: $error');
-          _statusController?.add(SerialConnectionStatus.error);
-          // Don't disconnect on read errors - let the user decide
-        },
-        onDone: () {
-          print('Serial port closed');
-          _statusController?.add(SerialConnectionStatus.disconnected);
-          disconnect();
-        },
-        cancelOnError: false, // Keep listening even on errors
-      );
+      // Start listening to incoming data within a guarded zone to
+      // handle unexpected errors from the native library.
+      runZonedGuarded(() {
+        _reader!.stream.listen(
+          (data) {
+            // Convert bytes to string and emit
+            final text = String.fromCharCodes(data);
+            print(
+              'SerialPort: Received ${data.length} bytes: '
+              '${text.replaceAll('\n', '\\n').replaceAll('\r', '\\r')}',
+            );
+            _dataController?.add(text);
+          },
+          onError: (error) {
+            print('Serial read error: $error');
+            _statusController?.add(SerialConnectionStatus.error);
+            // Don't disconnect on read errors - let the user decide
+          },
+          onDone: () {
+            print('Serial port closed');
+            _statusController?.add(SerialConnectionStatus.disconnected);
+            disconnect();
+          },
+          cancelOnError: false, // Keep listening even on errors
+        );
+      }, (error, stack) {
+        // Catch lower level native errors that can occur when the
+        // device disconnects unexpectedly.
+        print('Serial reader exception: $error');
+        _statusController?.add(SerialConnectionStatus.error);
+        disconnect();
+      });
 
       _statusController?.add(SerialConnectionStatus.connected);
 
