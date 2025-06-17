@@ -2337,9 +2337,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
     );
 
     if (result != null && mounted) {
-      for (final group in result) {
-        bloc.add(provisioner.AddSubscription(device.address, group));
-      }
+      bloc.add(provisioner.AddSubscriptions(device.address, result));
     }
   }
 
