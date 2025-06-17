@@ -192,7 +192,7 @@ flutter build apk --release
 
 ### 2. Scan for Devices
 1. Navigate to Scanner tab
-2. Unprovisioned devices appear automatically
+2. Unprovisioned devices appear automatically in a table with copy, identify, and provision actions
 3. Click "Provision" to add device to network
 4. Provisioned nodes show configuration status
 
@@ -243,6 +243,7 @@ The app expects responses in specific formats:
 0: uuid (timestamp)
 1: uuid (timestamp)
 ```
+Devices are shown in a table identical to the provisioned node list.
 
 ### Provisioned Node List
 ```
