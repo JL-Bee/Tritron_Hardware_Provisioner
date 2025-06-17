@@ -627,16 +627,6 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                     )),
                     DataCell(Row(
                       children: [
-                        OutlinedButton(
-                          onPressed: () {
-                            context
-                                .read<provisioner.ProvisionerBloc>()
-                                .add(provisioner.SendConsoleCommand(
-                                    'mesh/device/identify $uuid'));
-                          },
-                          child: const Text('Identify'),
-                        ),
-                        const SizedBox(width: 8),
                         FilledButton(
                           onPressed: state.isProvisioning &&
                                   state.provisioningUuid == uuid
@@ -727,28 +717,31 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                   return DataRow(cells: [
                     _buildStatusIndicator(device),
                     DataCell(
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            device.addressHex,
-                            style: const TextStyle(fontFamily: 'monospace'),
-                          ),
-                          if (device.label != null) Text(device.label!),
-                        ],
+                      SizedBox(
+                        width: 90,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              device.addressHex,
+                              style: const TextStyle(fontFamily: 'monospace'),
+                            ),
+                            if (device.label != null) Text(device.label!),
+                          ],
+                        ),
                       ),
                       onTap: () {
                         context.read<provisioner.ProvisionerBloc>().add(provisioner.SelectDevice(device));
                         _tabController.animateTo(1);
                       },
                     ),
-                    DataCell(
-                      SelectableText(device.groupAddressHex),
-                      onTap: () => _showGroupDevicesDialog(context, device.groupAddress),
-                    ),
                     DataCell(SizedBox(
-                      width: 160,
+                      width: 80,
+                      child: SelectableText(device.groupAddressHex),
+                    ), onTap: () => _showGroupDevicesDialog(context, device.groupAddress)),
+                    DataCell(SizedBox(
+                      width: 200,
                       child: SelectableText(
                         device.uuid,
                         maxLines: 1,
