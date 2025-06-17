@@ -151,12 +151,11 @@ class SerialPortService {
       try {
         final available = _port!.bytesAvailable;
         if (available > 0) {
-          final buffer = Uint8List(available);
-          final count = _port!.read(buffer);
-          if (count > 0) {
-            final text = String.fromCharCodes(buffer.sublist(0, count));
+          final bytes = _port!.read(available);
+          if (bytes.isNotEmpty) {
+            final text = String.fromCharCodes(bytes);
             print(
-              'SerialPort: Received $count bytes: '
+              'SerialPort: Received ${bytes.length} bytes: '
               '${text.replaceAll('\n', '\\n').replaceAll('\r', '\\r')}',
             );
             _dataController?.add(text);
