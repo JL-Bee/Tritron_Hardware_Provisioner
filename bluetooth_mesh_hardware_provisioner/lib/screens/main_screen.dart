@@ -170,12 +170,14 @@ class _BlocMainScreenState extends State<BlocMainScreen>
           }
         } else if (key.contains('sub_get')) {
           // Handle subscription list - this comes as multiple lines
-          // Store addresses as they come in
+          // Store addresses as they come in, ignoring case differences
           if (cleanResponse.startsWith('0x')) {
+            final normalized = cleanResponse.trim().toUpperCase();
             final current = _commandResults['Subscriptions'] ?? '';
             final addresses = current.isEmpty ? [] : current.split(', ');
-            if (!addresses.contains(cleanResponse)) {
-              addresses.add(cleanResponse);
+            final existing = addresses.map((a) => a.toUpperCase());
+            if (!existing.contains(normalized)) {
+              addresses.add(normalized);
               setState(() {
                 _commandResults['Subscriptions'] = addresses.join(', ');
               });
