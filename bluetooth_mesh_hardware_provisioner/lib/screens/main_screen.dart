@@ -1492,24 +1492,31 @@ class _BlocMainScreenState extends State<BlocMainScreen>
     }
   }
 
-  void _readAllParameters(BuildContext context, MeshDevice device) {
+  Future<void> _readAllParameters(
+      BuildContext context, MeshDevice device) async {
     final addr = device.addressHex;
-    _executeCommand(context, 'mesh/device/label/get $addr 3000',
-        stateKey: 'label_get_${device.address}');
-    _executeCommand(context, 'mesh/device/sub/get $addr 3000',
-        stateKey: 'sub_get_${device.address}');
-    _executeCommand(context, 'mesh/dali_lc/idle_cfg/get $addr 3000',
-        stateKey: 'dali_idle_get_${device.address}');
-    _executeCommand(context, 'mesh/dali_lc/trigger_cfg/get $addr 3000',
-        stateKey: 'dali_trigger_get_${device.address}');
-    _executeCommand(context, 'mesh/dali_lc/identify/get $addr 3000',
-        stateKey: 'dali_identify_get_${device.address}');
-    _executeCommand(context, 'mesh/dali_lc/override/get $addr 3000',
-        stateKey: 'dali_override_get_${device.address}');
-    _executeCommand(context, 'mesh/radar/cfg/get $addr 3000',
-        stateKey: 'radar_cfg_get_${device.address}');
-    _executeCommand(context, 'mesh/radar/enable/get $addr 3000',
-        stateKey: 'radar_enable_get_${device.address}');
+    final commands = <MapEntry<String, String>>[
+      MapEntry('mesh/device/label/get $addr 3000',
+          'label_get_${device.address}'),
+      MapEntry('mesh/device/sub/get $addr 3000', 'sub_get_${device.address}'),
+      MapEntry('mesh/dali_lc/idle_cfg/get $addr 3000',
+          'dali_idle_get_${device.address}'),
+      MapEntry('mesh/dali_lc/trigger_cfg/get $addr 3000',
+          'dali_trigger_get_${device.address}'),
+      MapEntry('mesh/dali_lc/identify/get $addr 3000',
+          'dali_identify_get_${device.address}'),
+      MapEntry('mesh/dali_lc/override/get $addr 3000',
+          'dali_override_get_${device.address}'),
+      MapEntry('mesh/radar/cfg/get $addr 3000',
+          'radar_cfg_get_${device.address}'),
+      MapEntry('mesh/radar/enable/get $addr 3000',
+          'radar_enable_get_${device.address}'),
+    ];
+
+    for (final cmd in commands) {
+      _executeCommand(context, cmd.key, stateKey: cmd.value);
+      await Future.delayed(const Duration(milliseconds: 30));
+    }
   }
 
   // Dialog methods
