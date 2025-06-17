@@ -729,9 +729,13 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                     DataCell(
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
+                          Text(
+                            device.addressHex,
+                            style: const TextStyle(fontFamily: 'monospace'),
+                          ),
                           if (device.label != null) Text(device.label!),
-                          Text(device.addressHex, style: const TextStyle(fontFamily: 'monospace')),
                         ],
                       ),
                       onTap: () {
@@ -1069,7 +1073,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                               Icons.download,
                               () => _executeCommand(
                                 context,
-                                'mesh/device/sub/get ${device.addressHex} 3000',
+                                'mesh/device/sub/get ${device.addressHex}',
                                 stateKey: 'sub_get_${device.address}',
                               ),
                               stateKey: 'sub_get_${device.address}',
@@ -1524,7 +1528,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
     final commands = <MapEntry<String, String>>[
       MapEntry('mesh/device/label/get $addr 3000',
           'label_get_${device.address}'),
-      MapEntry('mesh/device/sub/get $addr 3000', 'sub_get_${device.address}'),
+      MapEntry('mesh/device/sub/get $addr', 'sub_get_${device.address}'),
       MapEntry('mesh/dali_lc/idle_cfg/get $addr 3000',
           'dali_idle_get_${device.address}'),
       MapEntry('mesh/dali_lc/trigger_cfg/get $addr 3000',

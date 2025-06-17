@@ -46,6 +46,26 @@ class MeshDevice {
     );
   }
 
+  /// Serialize this device to JSON.
+  Map<String, dynamic> toJson() => {
+        'address': address,
+        'uuid': uuid,
+        'nHops': nHops,
+        'rssi': rssi,
+        'timeSinceLastHb': timeSinceLastHb,
+        'label': label,
+      };
+
+  /// Construct a device instance from JSON.
+  factory MeshDevice.fromJson(Map<String, dynamic> json) => MeshDevice(
+        address: json['address'] as int,
+        uuid: json['uuid'] as String,
+        nHops: json['nHops'] as int?,
+        rssi: json['rssi'] as int?,
+        timeSinceLastHb: json['timeSinceLastHb'] as int?,
+        label: json['label'] as String?,
+      );
+
   /// Hexadecimal representation of the node address.
   String get addressHex =>
       '0x${address.toRadixString(16).padLeft(4, '0').toUpperCase()}';
@@ -61,12 +81,12 @@ class MeshDevice {
   ///
   /// If no heartbeat has been received or two consecutive heartbeats were
   /// missed (>10s), the device is considered offline. If exactly one
-  /// heartbeat was missed (>5s) the status is [DeviceStatus.stale].
+  /// heartbeat was missed (>6s) the status is [DeviceStatus.stale].
   DeviceStatus get status {
     if (timeSinceLastHb == null || timeSinceLastHb! < 0 || timeSinceLastHb! > 10000) {
       return DeviceStatus.offline;
     }
-    if (timeSinceLastHb! > 5000) {
+    if (timeSinceLastHb! > 6000) {
       return DeviceStatus.stale;
     }
     return DeviceStatus.online;
