@@ -8,9 +8,9 @@ import '../models/serial_port_info.dart';
 /// Simplified serial port service that handles raw communication only
 class SerialPortService {
   SerialPort? _port;
-  SerialPortReader? _reader;
   StreamController<String>? _dataController;
   StreamController<SerialConnectionStatus>? _statusController;
+  Timer? _readTimer;
 
   // Public streams
   Stream<String> get dataStream => _dataController?.stream ?? const Stream.empty();
@@ -88,42 +88,7 @@ class SerialPortService {
 
       _port!.config = config;
 
-      // Set up the reader with a timeout
-      _reader = SerialPortReader(_port!, timeout: readTimeout);
-
-      // Start listening to incoming data within a guarded zone to
-      // handle unexpected errors from the native library.
-      runZonedGuarded(() {
-        _reader!.stream.listen(
-          (data) {
-            // Convert bytes to string and emit
-            final text = String.fromCharCodes(data);
-            print(
-              'SerialPort: Received ${data.length} bytes: '
-              '${text.replaceAll('\n', '\\n').replaceAll('\r', '\\r')}',
-            );
-            _dataController?.add(text);
-          },
-          onError: (error) {
-            print('Serial read error: $error');
-            _statusController?.add(SerialConnectionStatus.error);
-            // Close the port on read errors to avoid native library crashes
-            disconnect();
-          },
-          onDone: () {
-            print('Serial port closed');
-            _statusController?.add(SerialConnectionStatus.disconnected);
-            disconnect();
-          },
-          cancelOnError: false, // Keep listening even on errors
-        );
-      }, (error, stack) {
-        // Catch lower level native errors that can occur when the
-        // device disconnects unexpectedly.
-        print('Serial reader exception: $error');
-        _statusController?.add(SerialConnectionStatus.error);
-        disconnect();
-      });
+      _startReading();
 
       _statusController?.add(SerialConnectionStatus.connected);
 
@@ -179,12 +144,38 @@ class SerialPortService {
     }
   }
 
+  void _startReading() {
+    _readTimer?.cancel();
+    _readTimer = Timer.periodic(const Duration(milliseconds: readTimeout), (_) {
+      if (!isConnected) return;
+      try {
+        final available = _port!.bytesAvailable;
+        if (available > 0) {
+          final buffer = Uint8List(available);
+          final count = _port!.read(buffer);
+          if (count > 0) {
+            final text = String.fromCharCodes(buffer.sublist(0, count));
+            print(
+              'SerialPort: Received $count bytes: '
+              '${text.replaceAll('\n', '\\n').replaceAll('\r', '\\r')}',
+            );
+            _dataController?.add(text);
+          }
+        }
+      } catch (e) {
+        print('Serial read error: $e');
+        _statusController?.add(SerialConnectionStatus.error);
+        unawaited(disconnect());
+      }
+    });
+  }
+
   /// Disconnect from the serial port
   Future<void> disconnect() async {
     try {
-      // Close reader first
-      _reader?.close();
-      _reader = null;
+      // Stop background reader
+      _readTimer?.cancel();
+      _readTimer = null;
 
       // Close and dispose port
       if (_port != null) {

@@ -1,12 +1,16 @@
 // lib/main.dart
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'blocs/provisioner_bloc.dart';
 import 'screens/main_screen.dart';
 
 void main() {
-  runApp(const BlocProvisionerApp());
+  runZonedGuarded(
+    () => runApp(const BlocProvisionerApp()),
+    (error, stack) => print('Unhandled exception: $error'),
+  );
 }
 
 class BlocProvisionerApp extends StatelessWidget {
