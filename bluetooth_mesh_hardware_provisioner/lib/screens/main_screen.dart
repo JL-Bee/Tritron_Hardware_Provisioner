@@ -190,9 +190,12 @@ class _BlocMainScreenState extends State<BlocMainScreen>
       final nrf52Port = ports.firstWhere(
         (port) => port.isNRF52Device,
         orElse: () => ports.first,
+      );
 
       if (!mounted) return;
-      context.read<provisioner.ProvisionerBloc>().add(provisioner.ConnectToPort(nrf52Port));
+      context
+          .read<provisioner.ProvisionerBloc>()
+          .add(provisioner.ConnectToPort(nrf52Port));
     }
   }
 
