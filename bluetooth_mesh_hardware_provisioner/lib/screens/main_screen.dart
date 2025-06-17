@@ -597,7 +597,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                 columnSpacing: 12,
                 columns: const [
                   DataColumn(label: Text('UUID')),
-                  DataColumn(label: Text('Actions')),
+                  DataColumn(label: Center(child: Text('Actions'))),
                 ],
                 rows: state.foundUuids.map((uuid) {
                   return DataRow(cells: [
@@ -710,7 +710,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                   DataColumn(label: Text('Device')),
                   DataColumn(label: Text('Group')),
                   DataColumn(label: Text('UUID')),
-                  DataColumn(label: Text('Actions')),
+                  DataColumn(label: Center(child: Text('Actions'))),
                 ],
                 rows: state.provisionedDevices.map((device) {
                   return DataRow(cells: [
