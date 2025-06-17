@@ -175,6 +175,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
         }
       }
     });
+  }
 
   @override
   void dispose() {
