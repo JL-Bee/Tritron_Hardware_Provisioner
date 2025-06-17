@@ -603,12 +603,10 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                   return DataRow(cells: [
                     DataCell(Row(
                       children: [
-                        Expanded(
-                          child: SelectableText(
-                            uuid,
-                            maxLines: 1,
-                            style: const TextStyle(fontFamily: 'monospace'),
-                          ),
+                        SelectableText(
+                          uuid,
+                          maxLines: 1,
+                          style: const TextStyle(fontFamily: 'monospace'),
                         ),
                         IconButton(
                           icon: const Icon(Icons.copy, size: 16),
@@ -626,6 +624,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                       ],
                     )),
                     DataCell(Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         FilledButton(
                           onPressed: state.isProvisioning &&
@@ -860,29 +859,29 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: state.selectedDeviceSubscriptions.map((addr) => Chip(
-                          label: Text(
-                            '0x${addr.toRadixString(16).padLeft(4, '0').toUpperCase()}',
-                            style: const TextStyle(fontFamily: 'monospace'),
+                        children: state.selectedDeviceSubscriptions.map(
+                          (addr) => Chip(
+                            label: Text(
+                              '0x${addr.toRadixString(16).padLeft(4, '0').toUpperCase()}',
+                              style: const TextStyle(fontFamily: 'monospace'),
+                            ),
+                            deleteIcon: const Icon(Icons.close, size: 18),
+                            onDeleted: () {
+                              _executeCommand(
+                                context,
+                                'mesh/device/sub/remove ${device.addressHex} 0x${addr.toRadixString(16)} 3000',
+                                stateKey: 'sub_remove_${device.address}_$addr',
+                              );
+                              Future.delayed(const Duration(seconds: 1), () {
+                                if (mounted) {
+                                  context.read<provisioner.ProvisionerBloc>().add(
+                                        provisioner.SelectDevice(device),
+                                      );
+                                }
+                              });
+                            },
                           ),
-                          deleteIcon: addr == device.groupAddress ? null : const Icon(Icons.close, size: 18),
-                          onDeleted: addr == device.groupAddress
-                              ? null
-                              : () {
-                                  _executeCommand(
-                                    context,
-                                    'mesh/device/sub/remove ${device.addressHex} 0x${addr.toRadixString(16)} 3000',
-                                    stateKey: 'sub_remove_${device.address}_$addr',
-                                  );
-                                  Future.delayed(const Duration(seconds: 1), () {
-                                    if (mounted) {
-                                      context.read<provisioner.ProvisionerBloc>().add(
-                                            provisioner.SelectDevice(device),
-                                          );
-                                    }
-                                  });
-                                },
-                        )).toList(),
+                        ).toList(),
                       ),
                   ],
                 ),
