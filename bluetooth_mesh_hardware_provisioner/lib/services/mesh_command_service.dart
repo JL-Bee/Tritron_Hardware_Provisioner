@@ -236,7 +236,7 @@ Future<List<MeshDevice>> getProvisionedDevices() async {
   /// Add group subscription
   Future<bool> addSubscription(int nodeAddr, int groupAddr) async {
     final result = await executeCommand(
-      'mesh/device/sub/add 0x${nodeAddr.toRadixString(16)} 0x${groupAddr.toRadixString(16)}'
+      'mesh/device/sub/add 0x${nodeAddr.toRadixString(16)} 0x${groupAddr.toRadixString(16)} 3000'
     );
     return result.success;
   }
@@ -244,7 +244,7 @@ Future<List<MeshDevice>> getProvisionedDevices() async {
   /// Remove group subscription
   Future<bool> removeSubscription(int nodeAddr, int groupAddr) async {
     final result = await executeCommand(
-      'mesh/device/sub/remove 0x${nodeAddr.toRadixString(16)} 0x${groupAddr.toRadixString(16)}'
+      'mesh/device/sub/remove 0x${nodeAddr.toRadixString(16)} 0x${groupAddr.toRadixString(16)} 3000'
     );
     return result.success;
   }

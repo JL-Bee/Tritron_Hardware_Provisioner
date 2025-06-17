@@ -389,6 +389,10 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
         (_) => add(RefreshDeviceList()),
       );
 
+      if (state.autoProvision || _provisionQueue.isNotEmpty) {
+        add(_ProcessNextProvision());
+      }
+
     } catch (e) {
       emit(state.copyWith(
         connectionStatus: ConnectionStatus.error,
@@ -412,7 +416,9 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     await _serialService.disconnect();
 
     _knownDeviceAddresses.clear();
-    _provisionQueue.clear();
+      // Preserve the auto-provisioning queue so provisioning can resume after
+      // a reconnect. Clearing it here caused auto provisioning to halt if the
+      // device temporarily disconnected during provisioning.
 
     emit(ProvisionerState(provisionedDevices: state.provisionedDevices));
   }
