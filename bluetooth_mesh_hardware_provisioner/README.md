@@ -17,6 +17,8 @@ A comprehensive Flutter application for provisioning and managing Bluetooth mesh
 - View provisioned nodes in the network
 - Real-time device status updates
 - Support for provisioning and unprovisioning devices
+- Sequential "Provision All" for unprovisioned nodes
+- Optional auto-provisioning of newly discovered devices
 
 ### 🕸️ Network Visualization
 - Interactive 2D mesh network topology view
