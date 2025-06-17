@@ -69,6 +69,15 @@ class NodeDiscovered extends ProvisionerEvent {
   NodeDiscovered(this.uuid);
 }
 
+class ToggleAutoProvision extends ProvisionerEvent {
+  final bool enabled;
+  ToggleAutoProvision(this.enabled);
+}
+
+class ProvisionAll extends ProvisionerEvent {}
+
+class _ProcessNextProvision extends ProvisionerEvent {}
+
 // Internal event for processed lines
 class _ProcessedLineReceived extends ProvisionerEvent {
   final ProcessedLine line;
@@ -105,6 +114,7 @@ class ProvisionerState {
   final AppError? currentError;
   final List<ActionResult> actionHistory;
   final ActionExecution? currentAction;
+  final bool autoProvision;
 
   ProvisionerState({
     this.connectionStatus = ConnectionStatus.disconnected,
@@ -123,6 +133,7 @@ class ProvisionerState {
     this.currentError,
     List<ActionResult>? actionHistory,
     this.currentAction,
+    this.autoProvision = false,
   })  : foundUuids = foundUuids ?? {},
         provisionedDevices = provisionedDevices ?? [],
         selectedDeviceSubscriptions = selectedDeviceSubscriptions ?? [],
@@ -149,6 +160,7 @@ class ProvisionerState {
     bool clearError = false,
     List<ActionResult>? actionHistory,
     ActionExecution? currentAction,
+    bool? autoProvision,
   }) {
     return ProvisionerState(
       connectionStatus: connectionStatus ?? this.connectionStatus,
@@ -167,6 +179,7 @@ class ProvisionerState {
       currentError: clearError ? null : (currentError ?? this.currentError),
       actionHistory: actionHistory ?? this.actionHistory,
       currentAction: currentAction ?? this.currentAction,
+      autoProvision: autoProvision ?? this.autoProvision,
     );
   }
 }
@@ -289,6 +302,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
 
   /// Addresses of devices that have been seen in at least one device list call.
   final Set<int> _knownDeviceAddresses = {};
+  final List<String> _provisionQueue = [];
 
   ProvisionerBloc() : super(ProvisionerState()) {
     on<ConnectToPort>(_onConnectToPort);
@@ -304,6 +318,9 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     on<ClearError>(_onClearError);
     on<NodeDiscovered>(_onNodeDiscovered);
     on<SendConsoleCommand>(_onSendConsoleCommand);
+    on<ToggleAutoProvision>(_onToggleAutoProvision);
+    on<ProvisionAll>(_onProvisionAll);
+    on<_ProcessNextProvision>(_onProcessNextProvision);
     on<_ProcessedLineReceived>(_onProcessedLineReceived);
     on<_PollProvisioningStatus>(_onPollProvisioningStatus);
     on<_FinalizeProvisioning>(_onFinalizeProvisioning);
@@ -384,6 +401,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     await _serialService.disconnect();
 
     _knownDeviceAddresses.clear();
+    _provisionQueue.clear();
 
     emit(ProvisionerState());
   }
@@ -404,6 +422,13 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
         foundUuids: updatedUuids,
         isScanning: false,
       ));
+
+      if (state.autoProvision) {
+        for (final uuid in uuids) {
+          _enqueueProvision(uuid);
+        }
+        add(_ProcessNextProvision());
+      }
 
       _addActionResult('Device scan', true, 'Found ${uuids.length} devices', emit);
     } catch (e) {
@@ -467,6 +492,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
             ),
           ));
           _addActionResult('Provision device', false, 'Already provisioned', emit);
+          add(_ProcessNextProvision());
           return;
         }
 
@@ -476,6 +502,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
           currentError: AppError(message: 'Failed to start provisioning'),
         ));
         _addActionResult('Provision device', false, 'Failed to start', emit);
+        add(_ProcessNextProvision());
         return;
       }
 
@@ -488,6 +515,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
         currentError: AppError(message: 'Provisioning error: $e'),
       ));
       _addActionResult('Provision device', false, e.toString(), emit);
+      add(_ProcessNextProvision());
     }
   }
 
@@ -741,6 +769,10 @@ Future<void> _onSendConsoleCommand(SendConsoleCommand event, Emitter<Provisioner
   void _onNodeDiscovered(NodeDiscovered event, Emitter<ProvisionerState> emit) {
     final updated = Set<String>.from(state.foundUuids)..add(event.uuid);
     emit(state.copyWith(foundUuids: updated));
+    if (state.autoProvision) {
+      _enqueueProvision(event.uuid);
+      add(_ProcessNextProvision());
+    }
   }
 
 void _onProcessedLineReceived(_ProcessedLineReceived event, Emitter<ProvisionerState> emit) {
@@ -846,6 +878,7 @@ void _onProcessedLineReceived(_ProcessedLineReceived event, Emitter<ProvisionerS
 
       add(RefreshDeviceList());
       _addActionResult('Provision device', true, 'Device provisioned successfully', emit);
+      add(_ProcessNextProvision());
     } else {
       emit(state.copyWith(
         isProvisioning: false,
@@ -853,6 +886,7 @@ void _onProcessedLineReceived(_ProcessedLineReceived event, Emitter<ProvisionerS
         currentError: AppError(message: 'Provisioning failed with error: $result'),
       ));
       _addActionResult('Provision device', false, 'Error code: $result', emit);
+      add(_ProcessNextProvision());
     }
   }
 
@@ -905,6 +939,37 @@ void _onProcessedLineReceived(_ProcessedLineReceived event, Emitter<ProvisionerS
     }
 
     emit(state.copyWith(actionHistory: history, currentAction: null));
+  }
+
+  void _onToggleAutoProvision(
+      ToggleAutoProvision event, Emitter<ProvisionerState> emit) {
+    emit(state.copyWith(autoProvision: event.enabled));
+    if (event.enabled) {
+      for (final uuid in state.foundUuids) {
+        _enqueueProvision(uuid);
+      }
+      add(_ProcessNextProvision());
+    }
+  }
+
+  void _onProvisionAll(ProvisionAll event, Emitter<ProvisionerState> emit) {
+    for (final uuid in state.foundUuids) {
+      _enqueueProvision(uuid);
+    }
+    add(_ProcessNextProvision());
+  }
+
+  void _onProcessNextProvision(
+      _ProcessNextProvision event, Emitter<ProvisionerState> emit) {
+    if (state.isProvisioning || _provisionQueue.isEmpty) return;
+    final uuid = _provisionQueue.removeAt(0);
+    add(ProvisionDevice(uuid));
+  }
+
+  void _enqueueProvision(String uuid) {
+    if (!_provisionQueue.contains(uuid)) {
+      _provisionQueue.add(uuid);
+    }
   }
 
   @override

@@ -543,6 +543,27 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
+                Row(
+                  children: [
+                    Checkbox(
+                      value: state.autoProvision,
+                      onChanged: (v) => context
+                          .read<provisioner.ProvisionerBloc>()
+                          .add(provisioner.ToggleAutoProvision(v ?? false)),
+                    ),
+                    const Text('Auto Provision'),
+                  ],
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: state.isProvisioning || state.foundUuids.isEmpty
+                      ? null
+                      : () => context
+                          .read<provisioner.ProvisionerBloc>()
+                          .add(provisioner.ProvisionAll()),
+                  child: const Text('Provision All'),
+                ),
+                const SizedBox(width: 8),
                 Text(
                   '${state.foundUuids.length} devices',
                   style: Theme.of(context).textTheme.bodySmall,
