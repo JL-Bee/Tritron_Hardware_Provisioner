@@ -481,10 +481,14 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
       }
 
       if (state.autoProvision) {
+        final wasEmpty = _provisionQueue.isEmpty;
+        bool addedAny = false;
         for (final uuid in uuids) {
-          _enqueueProvision(uuid);
+          addedAny = _enqueueProvision(uuid) || addedAny;
         }
-        add(_ProcessNextProvision());
+        if (addedAny && wasEmpty && !state.isProvisioning) {
+          add(_ProcessNextProvision());
+        }
       }
 
       _addActionResult('Device scan', true, 'Found ${uuids.length} devices', emit);
@@ -873,8 +877,11 @@ Future<void> _onSendConsoleCommand(SendConsoleCommand event, Emitter<Provisioner
     final updated = Set<String>.from(state.foundUuids)..add(event.uuid);
     emit(state.copyWith(foundUuids: updated));
     if (state.autoProvision) {
-      _enqueueProvision(event.uuid);
-      add(_ProcessNextProvision());
+      final wasEmpty = _provisionQueue.isEmpty;
+      final added = _enqueueProvision(event.uuid);
+      if (added && wasEmpty && !state.isProvisioning) {
+        add(_ProcessNextProvision());
+      }
     }
   }
 
@@ -1068,10 +1075,14 @@ void _onProcessedLineReceived(_ProcessedLineReceived event, Emitter<ProvisionerS
       ToggleAutoProvision event, Emitter<ProvisionerState> emit) {
     emit(state.copyWith(autoProvision: event.enabled));
     if (event.enabled) {
+      final wasEmpty = _provisionQueue.isEmpty;
+      bool added = false;
       for (final uuid in state.foundUuids) {
-        _enqueueProvision(uuid);
+        added = _enqueueProvision(uuid) || added;
       }
-      add(_ProcessNextProvision());
+      if (added && wasEmpty && !state.isProvisioning) {
+        add(_ProcessNextProvision());
+      }
     }
   }
 
@@ -1089,10 +1100,10 @@ void _onProcessedLineReceived(_ProcessedLineReceived event, Emitter<ProvisionerS
     add(ProvisionDevice(uuid));
   }
 
-  void _enqueueProvision(String uuid) {
-    if (!_provisionQueue.contains(uuid)) {
-      _provisionQueue.add(uuid);
-    }
+  bool _enqueueProvision(String uuid) {
+    if (_provisionQueue.contains(uuid)) return false;
+    _provisionQueue.add(uuid);
+    return true;
   }
 
   Future<void> _loadCachedDevices() async {
