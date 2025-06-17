@@ -55,6 +55,12 @@ class RemoveSubscription extends ProvisionerEvent {
   RemoveSubscription(this.nodeAddress, this.groupAddress);
 }
 
+class AddSubscriptions extends ProvisionerEvent {
+  final int nodeAddress;
+  final List<int> groupAddresses;
+  AddSubscriptions(this.nodeAddress, this.groupAddresses);
+}
+
 class SelectDevice extends ProvisionerEvent {
   final MeshDevice? device;
   SelectDevice(this.device);
@@ -319,6 +325,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     on<UnprovisionDevice>(_onUnprovisionDevice);
     on<RemoveDeviceFromDb>(_onRemoveDeviceFromDb);
     on<AddSubscription>(_onAddSubscription);
+    on<AddSubscriptions>(_onAddSubscriptions);
     on<RemoveSubscription>(_onRemoveSubscription);
     on<SelectDevice>(_onSelectDevice);
     on<ClearError>(_onClearError);
@@ -663,6 +670,51 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     }
   }
 
+  Future<void> _onAddSubscriptions(AddSubscriptions event, Emitter<ProvisionerState> emit) async {
+    if (_meshService == null) return;
+
+    for (final group in event.groupAddresses) {
+      emit(state.copyWith(
+        currentAction: ActionExecution(
+          action: 'Add subscription 0x${group.toRadixString(16)}',
+        ),
+      ));
+
+      try {
+        final success = await _meshService!.addSubscription(event.nodeAddress, group);
+        if (success && state.selectedDevice?.address == event.nodeAddress) {
+          await _loadDeviceSubscriptions(event.nodeAddress, emit);
+          _addActionResult(
+            'Add subscription 0x${group.toRadixString(16)}',
+            true,
+            null,
+            emit,
+          );
+        } else {
+          emit(state.copyWith(
+            currentError: AppError(message: 'Failed to add subscription'),
+          ));
+          _addActionResult(
+            'Add subscription 0x${group.toRadixString(16)}',
+            false,
+            null,
+            emit,
+          );
+        }
+      } catch (e) {
+        emit(state.copyWith(
+          currentError: AppError(message: 'Error: $e'),
+        ));
+        _addActionResult(
+          'Add subscription 0x${group.toRadixString(16)}',
+          false,
+          e.toString(),
+          emit,
+        );
+      }
+    }
+  }
+
   Future<void> _onRemoveSubscription(RemoveSubscription event, Emitter<ProvisionerState> emit) async {
     if (_meshService == null) return;
 
@@ -925,12 +977,7 @@ void _onProcessedLineReceived(_ProcessedLineReceived event, Emitter<ProvisionerS
         }
       }
       if (newDevice != null) {
-        unawaited(
-          _meshService!.addSubscription(
-            newDevice.address,
-            newDevice.groupAddress,
-          ),
-        );
+        add(AddSubscription(newDevice.address, newDevice.groupAddress));
       }
 
       add(RefreshDeviceList());
