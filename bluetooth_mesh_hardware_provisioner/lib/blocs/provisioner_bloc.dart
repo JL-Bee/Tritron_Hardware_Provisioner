@@ -894,7 +894,32 @@ void _onProcessedLineReceived(_ProcessedLineReceived event, Emitter<ProvisionerS
         provisioningUuid: null,
       ));
 
+      // Retrieve the newly provisioned device so we can subscribe it to its
+      // own group address by default. This allows the provisioner to receive
+      // status messages from the node immediately after provisioning.
+      final devices = await _meshService!.getProvisionedDevices();
+      MeshDevice? newDevice;
+      for (final d in devices) {
+        if (d.uuid == uuid) {
+          newDevice = d;
+          break;
+        }
+      }
+      if (newDevice != null) {
+        unawaited(
+          _meshService!.addSubscription(
+            newDevice.address,
+            newDevice.groupAddress,
+          ),
+        );
+      }
+
       add(RefreshDeviceList());
+      if (state.autoProvision) {
+        // Scan again for any additional unprovisioned nodes so they can be
+        // queued for automatic provisioning.
+        add(ScanDevices());
+      }
       _addActionResult('Provision device', true, 'Device provisioned successfully', emit);
       add(_ProcessNextProvision());
     } else {
