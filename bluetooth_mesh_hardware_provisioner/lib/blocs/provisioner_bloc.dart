@@ -435,10 +435,29 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
       final uuids = await _meshService!.scanForDevices();
       final updatedUuids = Set<String>.from(state.foundUuids)..addAll(uuids);
 
+      // Remove any newly found device from the provisioned list if a matching
+      // UUID already exists there. The device should be considered
+      // unprovisioned in that case.
+      final adjustedProvisioned = <MeshDevice>[];
+      bool removed = false;
+      for (final device in state.provisionedDevices) {
+        if (uuids.contains(device.uuid)) {
+          _knownDeviceAddresses.remove(device.address);
+          removed = true;
+          continue;
+        }
+        adjustedProvisioned.add(device);
+      }
+
       emit(state.copyWith(
         foundUuids: updatedUuids,
+        provisionedDevices: adjustedProvisioned,
         isScanning: false,
       ));
+
+      if (removed) {
+        unawaited(_deviceCache.saveDevices(adjustedProvisioned));
+      }
 
       if (state.autoProvision) {
         for (final uuid in uuids) {
