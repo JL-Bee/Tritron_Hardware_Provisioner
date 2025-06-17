@@ -792,15 +792,16 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                     DataTable(
                       columnSpacing: 12,
                       columns: const [
-                        DataColumn(label: Text('Property')),
-                        DataColumn(label: Text('Value')),
+                        DataColumn(label: Text('Address')),
+                        DataColumn(label: Text('Group Address')),
+                        DataColumn(label: Text('UUID')),
                       ],
                       rows: [
-                        _buildInfoDataRow('Address', device.addressHex),
-                        _buildInfoDataRow('Group Address', device.groupAddressHex),
-                        _buildInfoDataRow('UUID', device.uuid),
-                        if (device.label != null)
-                          _buildInfoDataRow('Label', device.label!),
+                        DataRow(cells: [
+                          _buildCopyableCell('Address', device.addressHex),
+                          _buildCopyableCell('Group Address', device.groupAddressHex),
+                          _buildCopyableCell('UUID', device.uuid),
+                        ]),
                       ],
                     ),
                   ],
@@ -1218,7 +1219,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                       _buildResourceRow(
                         context,
                         'idle_cfg',
-                        'Idle Configuration',
+                        'DALI Idle Configuration',
                         'R/W',
                         [
                           Tooltip(
@@ -1248,12 +1249,12 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                             ),
                           ),
                         ],
-                        'Radar Idle Config',
+                        'DALI Idle Config',
                       ),
                       _buildResourceRow(
                         context,
                         'trigger_cfg',
-                        'Trigger Configuration',
+                        'DALI Trigger Configuration',
                         'R/W',
                         [
                           Tooltip(
@@ -1283,7 +1284,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                             ),
                           ),
                         ],
-                        'Radar Trigger Config',
+                        'DALI Trigger Config',
                       ),
                     ],
                   ),
@@ -1515,7 +1516,14 @@ class _BlocMainScreenState extends State<BlocMainScreen>
 
     for (final cmd in commands) {
       _executeCommand(context, cmd.key, stateKey: cmd.value);
-      await Future.delayed(const Duration(milliseconds: 30));
+      // Wait for a response before sending the next command
+      while (true) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        final status = _commandStates[cmd.value]?.status;
+        if (status != null && status != CommandStatus.loading) {
+          break;
+        }
+      }
     }
   }
 
@@ -2058,6 +2066,32 @@ class _BlocMainScreenState extends State<BlocMainScreen>
         ],
       )),
     ]);
+  }
+
+  DataCell _buildCopyableCell(String label, String value) {
+    return DataCell(Row(
+      children: [
+        Expanded(
+          child: SelectableText(
+            value,
+            style: const TextStyle(fontFamily: 'monospace'),
+          ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.copy, size: 16),
+          tooltip: 'Copy \$label',
+          onPressed: () {
+            Clipboard.setData(ClipboardData(text: value));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('\$label copied to clipboard'),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          },
+        ),
+      ],
+    ));
   }
 
   Widget _buildDaliInfoCard(provisioner.ProvisionerState state, MeshDevice device) {
