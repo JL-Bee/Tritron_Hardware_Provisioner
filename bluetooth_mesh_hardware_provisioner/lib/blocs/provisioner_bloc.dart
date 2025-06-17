@@ -287,6 +287,9 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
   /// information. Cancelled on disconnect.
   Timer? _deviceListTimer;
 
+  /// Addresses of devices that have been seen in at least one device list call.
+  final Set<int> _knownDeviceAddresses = {};
+
   ProvisionerBloc() : super(ProvisionerState()) {
     on<ConnectToPort>(_onConnectToPort);
     on<Disconnect>(_onDisconnect);
@@ -380,6 +383,8 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     _processor?.dispose();
     await _serialService.disconnect();
 
+    _knownDeviceAddresses.clear();
+
     emit(ProvisionerState());
   }
 
@@ -414,8 +419,19 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     if (_meshService == null) return;
 
     try {
-      final devices = await _meshService!.getProvisionedDevices();
-      emit(state.copyWith(provisionedDevices: devices));
+      final fetched = await _meshService!.getProvisionedDevices();
+      final adjusted = <MeshDevice>[];
+      for (var device in fetched) {
+        if (!_knownDeviceAddresses.contains(device.address)) {
+          _knownDeviceAddresses.add(device.address);
+          if (device.timeSinceLastHb == null || device.timeSinceLastHb! < 0) {
+            device = device.copyWith(timeSinceLastHb: 0);
+          }
+        }
+        adjusted.add(device);
+      }
+
+      emit(state.copyWith(provisionedDevices: adjusted));
     } catch (e) {
       emit(state.copyWith(
         currentError: AppError(message: 'Failed to refresh devices: $e'),
@@ -488,6 +504,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
       final success = await _meshService!.resetDevice(event.device.address);
       if (success) {
         add(RefreshDeviceList());
+        _knownDeviceAddresses.remove(event.device.address);
         if (state.selectedDevice?.address == event.device.address) {
           emit(state.copyWith(selectedDevice: null));
         }
@@ -519,6 +536,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
       final success = await _meshService!.removeDevice(event.device.address);
       if (success) {
         add(RefreshDeviceList());
+        _knownDeviceAddresses.remove(event.device.address);
         if (state.selectedDevice?.address == event.device.address) {
           emit(state.copyWith(selectedDevice: null));
         }

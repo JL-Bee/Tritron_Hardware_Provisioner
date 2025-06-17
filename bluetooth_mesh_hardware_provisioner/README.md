@@ -251,6 +251,16 @@ Devices are shown in a table identical to the provisioned node list.
 1: uuid || addr: 3 pub: c003  sub: [c003]
 ```
 
+### Heartbeat and Online Status
+Provisioned nodes may include heartbeat information in the format:
+```
+0x0002,uuid,n_hops,rssi,time_since_last_hb
+```
+The `time_since_last_hb` field is the number of milliseconds since the last
+heartbeat. A value of `-1` indicates that no heartbeat has yet been received.
+Newly provisioned devices are shown as online until a subsequent refresh reports
+`-1` again, at which point they are marked offline.
+
 ### Error Responses
 ```
 err: -errorcode
