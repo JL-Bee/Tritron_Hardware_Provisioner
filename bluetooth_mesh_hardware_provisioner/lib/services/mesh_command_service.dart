@@ -95,7 +95,10 @@ class MeshCommandService {
   }
 
   /// Execute a command and wait for response
-  Future<CommandResult> executeCommand(String command) async {
+  Future<CommandResult> executeCommand(
+    String command, {
+    Duration timeout = const Duration(seconds: 10),
+  }) async {
     // Wait for any active command to complete
     if (_activeCommand != null && !_activeCommand!.isCompleted) {
       await _activeCommand!.future.catchError((_) {});
@@ -113,7 +116,7 @@ class MeshCommandService {
 
       // Wait for response with overall timeout
       return await _activeCommand!.future.timeout(
-        const Duration(seconds: 10),
+        timeout,
         onTimeout: () => CommandResult(
           success: false,
           lines: [],
@@ -128,6 +131,18 @@ class MeshCommandService {
       _activeCommand = null;
       rethrow;
     }
+  }
+
+  /// Perform a simple health check on the provisioner.
+  ///
+  /// Sends a lightweight command and verifies that a status line
+  /// (\$ok, \$error or \$unknown) is received within [timeout].
+  /// Returns `true` when a status response was received, otherwise `false`.
+  Future<bool> healthCheck({Duration timeout = const Duration(seconds: 5)}) async {
+    final result = await executeCommand('mesh/device/list', timeout: timeout);
+    if (result.error == 'timeout') return false;
+    if (result.success) return true;
+    return result.error == 'error' || result.error == 'unknown';
   }
 
   /// Send a command without waiting for response

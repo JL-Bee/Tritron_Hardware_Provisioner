@@ -99,6 +99,9 @@ class _FinalizeProvisioning extends ProvisionerEvent {
   _FinalizeProvisioning(this.uuid);
 }
 
+// Internal event to periodically verify the provisioner connection
+class _HealthCheck extends ProvisionerEvent {}
+
 // States
 class ProvisionerState {
   final ConnectionStatus connectionStatus;
@@ -305,6 +308,8 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
   /// Timer that periodically refreshes the device list to update heartbeat
   /// information. Cancelled on disconnect.
   Timer? _deviceListTimer;
+  /// Timer that periodically verifies the provisioner connection.
+  Timer? _healthCheckTimer;
 
   /// Addresses of devices that have been seen in at least one device list call.
   final Set<int> _knownDeviceAddresses = {};
@@ -331,6 +336,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     on<_PollProvisioningStatus>(_onPollProvisioningStatus);
     on<_FinalizeProvisioning>(_onFinalizeProvisioning);
     on<Reconnect>(_onReconnect);
+    on<_HealthCheck>(_onHealthCheck);
 
     _loadCachedDevices();
   }
@@ -389,6 +395,13 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
         (_) => add(RefreshDeviceList()),
       );
 
+      // Start periodic health checks
+      _healthCheckTimer?.cancel();
+      _healthCheckTimer = Timer.periodic(
+        const Duration(seconds: 30),
+        (_) => add(_HealthCheck()),
+      );
+
       if (state.autoProvision || _provisionQueue.isNotEmpty) {
         add(_ProcessNextProvision());
       }
@@ -410,6 +423,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     _nodeFoundSubscription?.cancel();
     _provisioningTimer?.cancel();
     _deviceListTimer?.cancel();
+    _healthCheckTimer?.cancel();
 
     _meshService?.dispose();
     _processor?.dispose();
@@ -1048,6 +1062,16 @@ void _onProcessedLineReceived(_ProcessedLineReceived event, Emitter<ProvisionerS
     }
   }
 
+  Future<void> _onHealthCheck(
+      _HealthCheck event, Emitter<ProvisionerState> emit) async {
+    if (_meshService == null) return;
+    final healthy = await _meshService!.healthCheck().catchError((_) => false);
+    if (!healthy) {
+      add(Disconnect());
+      add(Reconnect());
+    }
+  }
+
   @override
   Future<void> close() {
     _serialStatusSubscription?.cancel();
@@ -1055,6 +1079,7 @@ void _onProcessedLineReceived(_ProcessedLineReceived event, Emitter<ProvisionerS
     _nodeFoundSubscription?.cancel();
     _provisioningTimer?.cancel();
     _deviceListTimer?.cancel();
+    _healthCheckTimer?.cancel();
 
     _meshService?.dispose();
     _processor?.dispose();
