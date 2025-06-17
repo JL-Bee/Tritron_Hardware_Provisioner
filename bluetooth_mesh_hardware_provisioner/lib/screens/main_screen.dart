@@ -78,10 +78,6 @@ class _BlocMainScreenState extends State<BlocMainScreen>
             final label = cleanResponse.replaceAll('"', '');
             setState(() {
               _commandResults['Device Label'] = label;
-              _commandStates[key] = CommandState(
-                status: CommandStatus.success,
-                timestamp: DateTime.now(),
-              );
             });
           }
         } else if (key.contains('dali_idle_get')) {
@@ -90,10 +86,6 @@ class _BlocMainScreenState extends State<BlocMainScreen>
             if (parts.length == 2) {
               setState(() {
                 _commandResults['DALI Idle Config'] = 'Arc: ${parts[0]}, Fade: ${parts[1]}';
-                _commandStates[key] = CommandState(
-                  status: CommandStatus.success,
-                  timestamp: DateTime.now(),
-                );
               });
             }
           }
@@ -102,10 +94,6 @@ class _BlocMainScreenState extends State<BlocMainScreen>
             final parts = cleanResponse.split(',');
             setState(() {
               _commandResults['DALI Trigger Config'] = 'Arc: ${parts[0]}, Fade In: ${parts[1]}, Fade Out: ${parts[2]}, Hold: ${parts[3]}s';
-              _commandStates[key] = CommandState(
-                status: CommandStatus.success,
-                timestamp: DateTime.now(),
-              );
             });
           }
         } else if (key.contains('dali_identify_get')) {
@@ -121,10 +109,6 @@ class _BlocMainScreenState extends State<BlocMainScreen>
             }
             setState(() {
               _commandResults['DALI Identify Time'] = displayValue;
-              _commandStates[key] = CommandState(
-                status: CommandStatus.success,
-                timestamp: DateTime.now(),
-              );
             });
           }
         } else if (key.contains('dali_override_get')) {
@@ -141,10 +125,6 @@ class _BlocMainScreenState extends State<BlocMainScreen>
             }
             setState(() {
               _commandResults['DALI Override'] = displayValue;
-              _commandStates[key] = CommandState(
-                status: CommandStatus.success,
-                timestamp: DateTime.now(),
-              );
             });
           }
         } else if (key.contains('radar_cfg_get')) {
@@ -152,20 +132,12 @@ class _BlocMainScreenState extends State<BlocMainScreen>
             final parts = cleanResponse.split(',');
             setState(() {
               _commandResults['Radar Config'] = 'Band: ${parts[0]}mV, Cross: ${parts[1]}, Interval: ${parts[2]}ms, Depth: ${parts[3]}';
-              _commandStates[key] = CommandState(
-                status: CommandStatus.success,
-                timestamp: DateTime.now(),
-              );
             });
           }
         } else if (key.contains('radar_enable_get')) {
           if (RegExp(r'^[01]$').hasMatch(cleanResponse)) {
             setState(() {
               _commandResults['Radar Enable'] = cleanResponse == '1' ? 'Enabled' : 'Disabled';
-              _commandStates[key] = CommandState(
-                status: CommandStatus.success,
-                timestamp: DateTime.now(),
-              );
             });
           }
         } else if (key.contains('sub_get')) {
@@ -185,26 +157,24 @@ class _BlocMainScreenState extends State<BlocMainScreen>
           }
         }
 
-        // Check for errors
-        if (cleanResponse == '\$error') {
-          setState(() {
-            _commandStates[key] = CommandState(
-              status: CommandStatus.failure,
-              timestamp: DateTime.now(),
-            );
-          });
-        } else if (cleanResponse == '\$ok' && key.contains('sub_get')) {
-          // Mark subscription get as complete
+        // Check for final status
+        if (cleanResponse == "\$ok") {
           setState(() {
             _commandStates[key] = CommandState(
               status: CommandStatus.success,
               timestamp: DateTime.now(),
             );
           });
+        } else if (cleanResponse == "\$error" || cleanResponse == "\$unknown") {
+          setState(() {
+            _commandStates[key] = CommandState(
+              status: CommandStatus.failure,
+              timestamp: DateTime.now(),
+            );
+          });
         }
       }
     });
-  }
 
   @override
   void dispose() {
@@ -220,7 +190,6 @@ class _BlocMainScreenState extends State<BlocMainScreen>
       final nrf52Port = ports.firstWhere(
         (port) => port.isNRF52Device,
         orElse: () => ports.first,
-      );
 
       if (!mounted) return;
       context.read<provisioner.ProvisionerBloc>().add(provisioner.ConnectToPort(nrf52Port));
