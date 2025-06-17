@@ -29,6 +29,23 @@ class MeshDevice {
     this.label,
   });
 
+  /// Create a copy of this device with optional overrides.
+  MeshDevice copyWith({
+    int? nHops,
+    int? rssi,
+    int? timeSinceLastHb,
+    String? label,
+  }) {
+    return MeshDevice(
+      address: address,
+      uuid: uuid,
+      nHops: nHops ?? this.nHops,
+      rssi: rssi ?? this.rssi,
+      timeSinceLastHb: timeSinceLastHb ?? this.timeSinceLastHb,
+      label: label ?? this.label,
+    );
+  }
+
   /// Hexadecimal representation of the node address.
   String get addressHex =>
       '0x${address.toRadixString(16).padLeft(4, '0').toUpperCase()}';
@@ -46,7 +63,7 @@ class MeshDevice {
   /// missed (>10s), the device is considered offline. If exactly one
   /// heartbeat was missed (>5s) the status is [DeviceStatus.stale].
   DeviceStatus get status {
-    if (timeSinceLastHb == null || timeSinceLastHb == 0 || timeSinceLastHb! > 10000) {
+    if (timeSinceLastHb == null || timeSinceLastHb! < 0 || timeSinceLastHb! > 10000) {
       return DeviceStatus.offline;
     }
     if (timeSinceLastHb! > 5000) {

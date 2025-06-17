@@ -167,10 +167,11 @@ Future<List<MeshDevice>> getProvisionedDevices() async {
   // Parse device list
   final devices = <MeshDevice>[];
   for (final line in result.lines) {
-    // New format with heartbeat info:
-    // "0x0002,uuid,n_hops,rssi,time_since_last_hb"
+    // New format with heartbeat info where `time_since_last_hb` is `-1`
+    // when the provisioner has not yet received a heartbeat from the node.
+    // Format: "0x0002,uuid,n_hops,rssi,time_since_last_hb"
     final fullMatch = RegExp(
-            r'0x([0-9a-fA-F]+),([0-9a-fA-F]{32}),(\d+),(-?\d+),(\d+)')
+            r'0x([0-9a-fA-F]+),([0-9a-fA-F]{32}),(\d+),(-?\d+),(-?\d+)')
         .firstMatch(line);
     if (fullMatch != null) {
       devices.add(MeshDevice(
