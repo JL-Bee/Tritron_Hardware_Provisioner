@@ -696,6 +696,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
               child: DataTable(
                 columnSpacing: 12,
                 columns: const [
+                  DataColumn(label: Text('Status')),
                   DataColumn(label: Text('Device')),
                   DataColumn(label: Text('Group')),
                   DataColumn(label: Text('UUID')),
@@ -703,6 +704,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                 ],
                 rows: state.provisionedDevices.map((device) {
                   return DataRow(cells: [
+                    DataCell(_buildStatusIndicator(device)),
                     DataCell(
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -792,12 +794,14 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                     DataTable(
                       columnSpacing: 12,
                       columns: const [
+                        DataColumn(label: Text('Status')),
                         DataColumn(label: Text('Address')),
                         DataColumn(label: Text('Group Address')),
                         DataColumn(label: Text('UUID')),
                       ],
                       rows: [
                         DataRow(cells: [
+                          DataCell(_buildStatusIndicator(device)),
                           _buildCopyableCell('Address', device.addressHex),
                           _buildCopyableCell('Group Address', device.groupAddressHex),
                           _buildCopyableCell('UUID', device.uuid),
@@ -2066,6 +2070,28 @@ class _BlocMainScreenState extends State<BlocMainScreen>
         ],
       )),
     ]);
+  }
+
+  /// Small coloured dot representing the device status.
+  DataCell _buildStatusIndicator(MeshDevice device) {
+    Color color;
+    switch (device.status) {
+      case DeviceStatus.online:
+        color = Colors.green;
+        break;
+      case DeviceStatus.stale:
+        color = Colors.orange;
+        break;
+      case DeviceStatus.offline:
+      default:
+        color = Colors.red;
+    }
+
+    return DataCell(Container(
+      width: 12,
+      height: 12,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    ));
   }
 
   DataCell _buildCopyableCell(String label, String value) {

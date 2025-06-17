@@ -167,12 +167,29 @@ Future<List<MeshDevice>> getProvisionedDevices() async {
   // Parse device list
   final devices = <MeshDevice>[];
   for (final line in result.lines) {
-    // Format: 0x0002:0c305584745b4c09b3cfaa7b8ba483f6 or 0x0002,0c305584745b4c09b3cfaa7b8ba483f6
-    final match = RegExp(r'0x([0-9a-fA-F]+)[:, ]([0-9a-fA-F]{32})').firstMatch(line);
-    if (match != null) {
+    // New format with heartbeat info:
+    // "0x0002,uuid,n_hops,rssi,time_since_last_hb"
+    final fullMatch = RegExp(
+            r'0x([0-9a-fA-F]+),([0-9a-fA-F]{32}),(\d+),(-?\d+),(\d+)')
+        .firstMatch(line);
+    if (fullMatch != null) {
       devices.add(MeshDevice(
-        address: int.parse(match.group(1)!, radix: 16),
-        uuid: match.group(2)!,
+        address: int.parse(fullMatch.group(1)!, radix: 16),
+        uuid: fullMatch.group(2)!,
+        nHops: int.parse(fullMatch.group(3)!),
+        rssi: int.parse(fullMatch.group(4)!),
+        timeSinceLastHb: int.parse(fullMatch.group(5)!),
+      ));
+      continue;
+    }
+
+    // Legacy format without heartbeat info
+    final legacyMatch =
+        RegExp(r'0x([0-9a-fA-F]+)[:, ]([0-9a-fA-F]{32})').firstMatch(line);
+    if (legacyMatch != null) {
+      devices.add(MeshDevice(
+        address: int.parse(legacyMatch.group(1)!, radix: 16),
+        uuid: legacyMatch.group(2)!,
       ));
     }
   }
