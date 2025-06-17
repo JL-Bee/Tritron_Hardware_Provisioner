@@ -532,120 +532,138 @@ class _BlocMainScreenState extends State<BlocMainScreen>
       },
       child: ListView(
         children: [
+
           // Unprovisioned devices section
-          if (state.foundUuids.isNotEmpty) ...[
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  const Text(
-                    'Unprovisioned Devices',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: state.isScanning
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.refresh),
-                    onPressed: state.isScanning
-                        ? null
-                        : () => context.read<provisioner.ProvisionerBloc>().add(provisioner.ScanDevices()),
-                  ),
-                ],
-              ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                const Text(
+                  'Unprovisioned Devices',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const Spacer(),
+                Text(
+                  '${state.foundUuids.length} devices',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                IconButton(
+                  icon: state.isScanning
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh),
+                  onPressed: state.isScanning
+                      ? null
+                      : () => context
+                          .read<provisioner.ProvisionerBloc>()
+                          .add(provisioner.ScanDevices()),
+                ),
+              ],
             ),
-            ...state.foundUuids.map((uuid) => Card(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: ListTile(
-                leading: const CircleAvatar(
-                  child: Icon(Icons.bluetooth),
-                ),
-                title: const SelectableText('New Device'),
-                subtitle: Row(
-                  children: [
-                    const Text('UUID: '),
-                    Expanded(
-                      child: SelectableText(
-                        uuid,
-                        style: const TextStyle(fontFamily: 'monospace'),
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.copy, size: 16),
-                      tooltip: 'Copy UUID',
-                      onPressed: () {
-                        Clipboard.setData(ClipboardData(text: uuid));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('UUID copied to clipboard'),
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    OutlinedButton(
-                      onPressed: () {
-                        context
-                            .read<provisioner.ProvisionerBloc>()
-                            .add(provisioner.SendConsoleCommand(
-                                'mesh/device/identify $uuid'));
-                      },
-                      child: const Text('Identify'),
-                    ),
-                    const SizedBox(width: 8),
-                    FilledButton(
-                      onPressed: state.isProvisioning && state.provisioningUuid == uuid
-                          ? null
-                          : () => context.read<provisioner.ProvisionerBloc>().add(provisioner.ProvisionDevice(uuid)),
-                      child: state.isProvisioning && state.provisioningUuid == uuid
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text('Provision'),
-                    ),
-                  ],
-                ),
-              ),
-            )),
-            if (state.foundUuids.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Card(
-                  color: Colors.blue.shade50,
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
+          ),
+          if (state.foundUuids.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(32),
+              child: Center(child: Text('No unprovisioned devices')),
+            )
+          else ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: DataTable(
+                columnSpacing: 12,
+                columns: const [
+                  DataColumn(label: Text('UUID')),
+                  DataColumn(label: Text('Actions')),
+                ],
+                rows: state.foundUuids.map((uuid) {
+                  return DataRow(cells: [
+                    DataCell(Row(
                       children: [
-                        Icon(Icons.info_outline, color: Colors.blue.shade700),
-                        const SizedBox(width: 8),
                         Expanded(
-                          child: Text(
-                            'If devices show as "already provisioned", use Menu → Factory Reset to clear the database.',
-                            style: TextStyle(fontSize: 12, color: Colors.blue.shade900),
+                          child: SelectableText(
+                            uuid,
+                            maxLines: 1,
+                            style: const TextStyle(fontFamily: 'monospace'),
                           ),
                         ),
+                        IconButton(
+                          icon: const Icon(Icons.copy, size: 16),
+                          tooltip: 'Copy UUID',
+                          onPressed: () {
+                            Clipboard.setData(ClipboardData(text: uuid));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('UUID copied to clipboard'),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                        ),
                       ],
-                    ),
+                    )),
+                    DataCell(Row(
+                      children: [
+                        OutlinedButton(
+                          onPressed: () {
+                            context
+                                .read<provisioner.ProvisionerBloc>()
+                                .add(provisioner.SendConsoleCommand(
+                                    'mesh/device/identify $uuid'));
+                          },
+                          child: const Text('Identify'),
+                        ),
+                        const SizedBox(width: 8),
+                        FilledButton(
+                          onPressed: state.isProvisioning &&
+                                  state.provisioningUuid == uuid
+                              ? null
+                              : () => context
+                                  .read<provisioner.ProvisionerBloc>()
+                                  .add(provisioner.ProvisionDevice(uuid)),
+                          child: state.isProvisioning &&
+                                  state.provisioningUuid == uuid
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text('Provision'),
+                        ),
+                      ],
+                    )),
+                  ]);
+                }).toList(),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Card(
+                color: Colors.blue.shade50,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.blue.shade700),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'If devices show as "already provisioned", use Menu → Factory Reset to clear the database.',
+                          style: TextStyle(fontSize: 12, color: Colors.blue.shade900),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
+            ),
             const Divider(height: 32),
           ],
-
           // Provisioned devices section
           Padding(
             padding: const EdgeInsets.all(16),
