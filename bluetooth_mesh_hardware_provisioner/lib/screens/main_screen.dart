@@ -685,8 +685,23 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                 ],
                 rows: state.provisionedDevices.map((device) {
                   return DataRow(cells: [
-                    DataCell(Text(device.label ?? device.addressHex)),
-                    DataCell(SelectableText(device.groupAddressHex)),
+                    DataCell(
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (device.label != null) Text(device.label!),
+                          Text(device.addressHex, style: const TextStyle(fontFamily: 'monospace')),
+                        ],
+                      ),
+                      onTap: () {
+                        context.read<provisioner.ProvisionerBloc>().add(provisioner.SelectDevice(device));
+                        _tabController.animateTo(1);
+                      },
+                    ),
+                    DataCell(
+                      SelectableText(device.groupAddressHex),
+                      onTap: () => _showGroupDevicesDialog(context, device.groupAddress),
+                    ),
                     DataCell(SizedBox(
                       width: 160,
                       child: SelectableText(
@@ -2142,5 +2157,40 @@ class _BlocMainScreenState extends State<BlocMainScreen>
     if (result != null && mounted) {
       bloc.add(provisioner.AddSubscription(device.address, result.groupAddress));
     }
+  }
+
+  /// Display a dialog listing all devices that share [groupAddress].
+  Future<void> _showGroupDevicesDialog(BuildContext context, int groupAddress) async {
+    final devices = context
+        .read<provisioner.ProvisionerBloc>()
+        .state
+        .provisionedDevices
+        .where((d) => d.groupAddress == groupAddress)
+        .toList();
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Group 0x${groupAddress.toRadixString(16).padLeft(4, '0').toUpperCase()}'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView(
+            shrinkWrap: true,
+            children: devices
+                .map((d) => ListTile(
+                      title: Text(d.label ?? d.addressHex),
+                      subtitle: Text(d.addressHex),
+                    ))
+                .toList(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 }
