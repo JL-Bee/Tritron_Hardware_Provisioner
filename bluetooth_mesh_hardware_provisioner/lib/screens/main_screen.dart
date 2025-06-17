@@ -789,11 +789,20 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     const Divider(),
-                    _buildInfoRow('Address', device.addressHex),
-                    _buildInfoRow('Group Address', device.groupAddressHex),
-                    _buildInfoRow('UUID', device.uuid),
-                    if (device.label != null)
-                      _buildInfoRow('Label', device.label!),
+                    DataTable(
+                      columnSpacing: 12,
+                      columns: const [
+                        DataColumn(label: Text('Property')),
+                        DataColumn(label: Text('Value')),
+                      ],
+                      rows: [
+                        _buildInfoDataRow('Address', device.addressHex),
+                        _buildInfoDataRow('Group Address', device.groupAddressHex),
+                        _buildInfoDataRow('UUID', device.uuid),
+                        if (device.label != null)
+                          _buildInfoDataRow('Label', device.label!),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -1060,76 +1069,6 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                       _buildSectionHeader(context, 'DALI Light Control'),
                       _buildResourceRow(
                         context,
-                        'idle_cfg',
-                        'Idle Configuration',
-                        'R/W',
-                        [
-                          Tooltip(
-                            message: 'Get the DALI LC idle configuration.\n'
-                                    'Returns: arc level (0-254) and fade time',
-                            child: _buildActionButton(
-                              context,
-                              'GET',
-                              Icons.download,
-                              () => _executeCommand(
-                                context,
-                                'mesh/dali_lc/idle_cfg/get ${device.addressHex} 3000',
-                                stateKey: 'dali_idle_get_${device.address}',
-                              ),
-                              stateKey: 'dali_idle_get_${device.address}',
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Tooltip(
-                            message: 'Set the idle state configuration.',
-                            child: _buildActionButton(
-                              context,
-                              'SET',
-                              Icons.settings,
-                              () => _showDaliIdleConfigDialog(context, device),
-                              stateKey: 'dali_idle_set_${device.address}',
-                            ),
-                          ),
-                        ],
-                        'DALI Idle Config',
-                      ),
-                      _buildResourceRow(
-                        context,
-                        'trigger_cfg',
-                        'Trigger Configuration',
-                        'R/W',
-                        [
-                          Tooltip(
-                            message: 'Get the trigger configuration.\n'
-                                    'Returns: arc, fade in, fade out, hold time',
-                            child: _buildActionButton(
-                              context,
-                              'GET',
-                              Icons.download,
-                              () => _executeCommand(
-                                context,
-                                'mesh/dali_lc/trigger_cfg/get ${device.addressHex} 3000',
-                                stateKey: 'dali_trigger_get_${device.address}',
-                              ),
-                              stateKey: 'dali_trigger_get_${device.address}',
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Tooltip(
-                            message: 'Configure trigger behavior.',
-                            child: _buildActionButton(
-                              context,
-                              'SET',
-                              Icons.settings,
-                              () => _showDaliTriggerConfigDialog(context, device),
-                              stateKey: 'dali_trigger_set_${device.address}',
-                            ),
-                          ),
-                        ],
-                        'DALI Trigger Config',
-                      ),
-                      _buildResourceRow(
-                        context,
                         'identify',
                         'Light Identify',
                         'R/W',
@@ -1204,7 +1143,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                       ),
 
                       // Radar Control Section
-                      _buildSectionHeader(context, 'Radar Control'),
+                      _buildSectionHeader(context, 'Motion Sensor Control'),
                       _buildResourceRow(
                         context,
                         'cfg',
@@ -1275,6 +1214,76 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                           ),
                         ],
                         'Radar Enable',
+                      ),
+                      _buildResourceRow(
+                        context,
+                        'idle_cfg',
+                        'Idle Configuration',
+                        'R/W',
+                        [
+                          Tooltip(
+                            message: 'Get the DALI LC idle configuration.\n'
+                                    'Returns: arc level (0-254) and fade time',
+                            child: _buildActionButton(
+                              context,
+                              'GET',
+                              Icons.download,
+                              () => _executeCommand(
+                                context,
+                                'mesh/dali_lc/idle_cfg/get ${device.addressHex} 3000',
+                                stateKey: 'dali_idle_get_${device.address}',
+                              ),
+                              stateKey: 'dali_idle_get_${device.address}',
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Tooltip(
+                            message: 'Set the idle state configuration.',
+                            child: _buildActionButton(
+                              context,
+                              'SET',
+                              Icons.settings,
+                              () => _showDaliIdleConfigDialog(context, device),
+                              stateKey: 'dali_idle_set_${device.address}',
+                            ),
+                          ),
+                        ],
+                        'Radar Idle Config',
+                      ),
+                      _buildResourceRow(
+                        context,
+                        'trigger_cfg',
+                        'Trigger Configuration',
+                        'R/W',
+                        [
+                          Tooltip(
+                            message: 'Get the trigger configuration.\n'
+                                    'Returns: arc, fade in, fade out, hold time',
+                            child: _buildActionButton(
+                              context,
+                              'GET',
+                              Icons.download,
+                              () => _executeCommand(
+                                context,
+                                'mesh/dali_lc/trigger_cfg/get ${device.addressHex} 3000',
+                                stateKey: 'dali_trigger_get_${device.address}',
+                              ),
+                              stateKey: 'dali_trigger_get_${device.address}',
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Tooltip(
+                            message: 'Configure trigger behavior.',
+                            child: _buildActionButton(
+                              context,
+                              'SET',
+                              Icons.settings,
+                              () => _showDaliTriggerConfigDialog(context, device),
+                              stateKey: 'dali_trigger_set_${device.address}',
+                            ),
+                          ),
+                        ],
+                        'Radar Trigger Config',
                       ),
                     ],
                   ),
@@ -2013,6 +2022,35 @@ class _BlocMainScreenState extends State<BlocMainScreen>
         ],
       ),
     );
+  }
+
+  DataRow _buildInfoDataRow(String label, String value) {
+    return DataRow(cells: [
+      DataCell(Text(label)),
+      DataCell(Row(
+        children: [
+          Expanded(
+            child: SelectableText(
+              value,
+              style: const TextStyle(fontFamily: 'monospace'),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.copy, size: 16),
+            tooltip: 'Copy $label',
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: value));
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('$label copied to clipboard'),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            },
+          ),
+        ],
+      )),
+    ]);
   }
 
   Widget _buildDaliInfoCard(provisioner.ProvisionerState state, MeshDevice device) {
