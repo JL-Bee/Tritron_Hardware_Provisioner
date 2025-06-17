@@ -2254,12 +2254,18 @@ class _BlocMainScreenState extends State<BlocMainScreen>
     }
   }
 
-  Future<void> _showAddSubscriptionDialog(BuildContext context, MeshDevice device) async {
+  Future<void> _showAddSubscriptionDialog(
+    BuildContext context,
+    MeshDevice device,
+  ) async {
     final bloc = context.read<provisioner.ProvisionerBloc>();
-    final others = bloc.state.provisionedDevices.toList();
-    MeshDevice? selected;
+    final others = bloc.state.provisionedDevices
+        .where((d) => d.address != device.address)
+        .toList();
+    final selected = <int>{};
+    var includeSelf = false;
 
-    final result = await showDialog<MeshDevice>(
+    final result = await showDialog<List<int>>(
       context: context,
       builder: (dialogContext) {
         return StatefulBuilder(
@@ -2267,27 +2273,39 @@ class _BlocMainScreenState extends State<BlocMainScreen>
             title: const Text('Link Device'),
             content: SizedBox(
               width: double.maxFinite,
-              child: ListView.builder(
+              child: ListView(
                 shrinkWrap: true,
-                itemCount: others.length,
-                itemBuilder: (context, index) {
-                  final d = others[index];
-                  return ListTile(
-                    title: Text(d.label ?? d.addressHex),
-                    subtitle: Text('Group: ${d.groupAddressHex}'),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.lightbulb),
-                      tooltip: 'Identify',
-                      onPressed: () => _executeCommand(
-                        context,
-                        'mesh/dali_lc/identify/set ${d.addressHex} 5 3000',
-                        stateKey: 'identify_set_${d.address}',
+                children: [
+                  CheckboxListTile(
+                    title: const Text('This device'),
+                    subtitle: Text('Group: ${device.groupAddressHex}'),
+                    value: includeSelf,
+                    onChanged: (v) => setState(() => includeSelf = v ?? false),
+                  ),
+                  ...others.map(
+                    (d) => CheckboxListTile(
+                      title: Text(d.label ?? d.addressHex),
+                      subtitle: Text('Group: ${d.groupAddressHex}'),
+                      secondary: IconButton(
+                        icon: const Icon(Icons.lightbulb),
+                        tooltip: 'Identify',
+                        onPressed: () => _executeCommand(
+                          context,
+                          'mesh/dali_lc/identify/set ${d.addressHex} 5 3000',
+                          stateKey: 'identify_set_${d.address}',
+                        ),
                       ),
+                      value: selected.contains(d.address),
+                      onChanged: (v) => setState(() {
+                        if (v ?? false) {
+                          selected.add(d.address);
+                        } else {
+                          selected.remove(d.address);
+                        }
+                      }),
                     ),
-                    selected: selected?.address == d.address,
-                    onTap: () => setState(() => selected = d),
-                  );
-                },
+                  ),
+                ],
               ),
             ),
             actions: [
@@ -2296,7 +2314,18 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                 child: const Text('Cancel'),
               ),
               FilledButton(
-                onPressed: selected == null ? null : () => Navigator.pop(dialogContext, selected),
+                onPressed: (selected.isEmpty && !includeSelf)
+                    ? null
+                    : () => Navigator.pop(
+                          dialogContext,
+                          <int>[
+                            if (includeSelf) device.groupAddress,
+                            ...selected
+                                .map((addr) => others
+                                    .firstWhere((d) => d.address == addr)
+                                    .groupAddress)
+                          ],
+                        ),
                 child: const Text('Add'),
               ),
             ],
@@ -2306,7 +2335,9 @@ class _BlocMainScreenState extends State<BlocMainScreen>
     );
 
     if (result != null && mounted) {
-      bloc.add(provisioner.AddSubscription(device.address, result.groupAddress));
+      for (final group in result) {
+        bloc.add(provisioner.AddSubscription(device.address, group));
+      }
     }
   }
 
