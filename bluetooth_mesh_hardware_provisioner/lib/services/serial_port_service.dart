@@ -107,7 +107,8 @@ class SerialPortService {
           onError: (error) {
             print('Serial read error: $error');
             _statusController?.add(SerialConnectionStatus.error);
-            // Don't disconnect on read errors - let the user decide
+            // Close the port on read errors to avoid native library crashes
+            disconnect();
           },
           onDone: () {
             print('Serial port closed');
