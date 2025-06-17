@@ -704,7 +704,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                 ],
                 rows: state.provisionedDevices.map((device) {
                   return DataRow(cells: [
-                    DataCell(_buildStatusIndicator(device)),
+                    _buildStatusIndicator(device),
                     DataCell(
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -801,7 +801,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                       ],
                       rows: [
                         DataRow(cells: [
-                          DataCell(_buildStatusIndicator(device)),
+                          _buildStatusIndicator(device),
                           _buildCopyableCell('Address', device.addressHex),
                           _buildCopyableCell('Group Address', device.groupAddressHex),
                           _buildCopyableCell('UUID', device.uuid),
