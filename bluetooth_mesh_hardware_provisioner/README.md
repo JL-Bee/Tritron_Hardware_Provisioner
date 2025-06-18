@@ -41,6 +41,7 @@ A comprehensive Flutter application for provisioning and managing Bluetooth mesh
 - Real-time data logging
 - Command history
 - Bidirectional communication monitoring
+- Optional auto-scroll toggle
 
 ## Architecture
 
