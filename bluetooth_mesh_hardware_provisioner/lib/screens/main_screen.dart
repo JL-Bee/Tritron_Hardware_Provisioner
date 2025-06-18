@@ -271,7 +271,17 @@ class _BlocMainScreenState extends State<BlocMainScreen>
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Bluetooth Mesh Provisioner'),
+            title: Row(
+              children: [
+                Image.asset(
+                  'assets/images/remoticom_logo.png',
+                  height: kToolbarHeight * 0.8,
+                  fit: BoxFit.contain,
+                ),
+                const SizedBox(width: 12),
+                const Text('Bluetooth Mesh Provisioner'),
+              ],
+            ),
             backgroundColor: Theme.of(context).colorScheme.inversePrimary,
             actions: [
               PopupMenuButton<String>(
