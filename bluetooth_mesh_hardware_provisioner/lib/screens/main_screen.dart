@@ -1685,6 +1685,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                     label: 'Hold Time (seconds)',
                     min: 0,
                     max: 65535,
+                    sliderMax: 120,
                     controller: holdTimeController,
                   ),
                 ],
