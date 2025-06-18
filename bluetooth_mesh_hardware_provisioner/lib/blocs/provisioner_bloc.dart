@@ -530,10 +530,23 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
   Future<void> _onProvisionDevice(ProvisionDevice event, Emitter<ProvisionerState> emit) async {
     if (state.isProvisioning || _meshService == null) return;
 
+    // Snapshot current lists so we can revert on failure
+    final prevProvisioned = List<MeshDevice>.from(state.provisionedDevices);
+    final prevFound = Set<String>.from(state.foundUuids);
+
+    // Add a placeholder device to the provisioned list and remove it from
+    // the unprovisioned set so the UI immediately reflects the pending action.
+    final placeholder = MeshDevice(address: 0, uuid: event.uuid);
+    final updatedProvisioned = List<MeshDevice>.from(prevProvisioned)
+      ..add(placeholder);
+    final updatedFound = Set<String>.from(prevFound)..remove(event.uuid);
+
     emit(state.copyWith(
       isProvisioning: true,
       provisioningStatus: 'Starting provisioning...',
       provisioningUuid: event.uuid,
+      provisionedDevices: updatedProvisioned,
+      foundUuids: updatedFound,
       currentAction: ActionExecution(action: 'Provision device'),
     ));
 
@@ -546,22 +559,26 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
         final isAlreadyProvisioned = devices.any((d) => d.uuid == event.uuid);
 
         if (isAlreadyProvisioned) {
-          emit(state.copyWith(
-            isProvisioning: false,
-            provisioningUuid: null,
-            currentError: AppError(
-              message: 'Device is already provisioned. Use Factory Reset to clear the database.',
-              severity: ErrorSeverity.warning,
-            ),
-          ));
-          _addActionResult('Provision device', false, 'Already provisioned', emit);
-          add(_ProcessNextProvision());
-          return;
+        emit(state.copyWith(
+          isProvisioning: false,
+          provisioningUuid: null,
+          provisionedDevices: prevProvisioned,
+          foundUuids: prevFound,
+          currentError: AppError(
+            message: 'Device is already provisioned. Use Factory Reset to clear the database.',
+            severity: ErrorSeverity.warning,
+          ),
+        ));
+        _addActionResult('Provision device', false, 'Already provisioned', emit);
+        add(_ProcessNextProvision());
+        return;
         }
 
         emit(state.copyWith(
           isProvisioning: false,
           provisioningUuid: null,
+          provisionedDevices: prevProvisioned,
+          foundUuids: prevFound,
           currentError: AppError(message: 'Failed to start provisioning'),
         ));
         _addActionResult('Provision device', false, 'Failed to start', emit);
@@ -575,6 +592,8 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
       emit(state.copyWith(
         isProvisioning: false,
         provisioningUuid: null,
+        provisionedDevices: prevProvisioned,
+        foundUuids: prevFound,
         currentError: AppError(message: 'Provisioning error: $e'),
       ));
       _addActionResult('Provision device', false, e.toString(), emit);
@@ -1010,9 +1029,15 @@ void _onProcessedLineReceived(_ProcessedLineReceived event, Emitter<ProvisionerS
       _addActionResult('Provision device', true, 'Device provisioned successfully', emit);
       add(_ProcessNextProvision());
     } else {
+      final adjusted = List<MeshDevice>.from(state.provisionedDevices)
+        ..removeWhere((d) => d.uuid == uuid && d.address == 0);
+      final updatedFound = Set<String>.from(state.foundUuids)..add(uuid);
+
       emit(state.copyWith(
         isProvisioning: false,
         provisioningUuid: null,
+        provisionedDevices: adjusted,
+        foundUuids: updatedFound,
         currentError: AppError(message: 'Provisioning failed with error: $result'),
       ));
       _addActionResult('Provision device', false, 'Error code: $result', emit);

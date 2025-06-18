@@ -2075,8 +2075,17 @@ class _BlocMainScreenState extends State<BlocMainScreen>
     ]);
   }
 
-  /// Small coloured dot representing the device status.
+  /// Small coloured dot representing the device status. If the device address
+  /// is `0`, provisioning is in progress and a spinner is shown instead.
   DataCell _buildStatusIndicator(MeshDevice device) {
+    if (device.address == 0) {
+      return const DataCell(SizedBox(
+        width: 16,
+        height: 16,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      ));
+    }
+
     Color color;
     switch (device.status) {
       case DeviceStatus.online:
