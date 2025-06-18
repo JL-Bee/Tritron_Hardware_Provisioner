@@ -1,3 +1,5 @@
+<!-- bluetooth_mesh_hardware_provisioner/Neptune Provisioner commands.md -->
+
 ```
 ~>_____mesh/
 ~>   |_ factory_reset
@@ -422,7 +424,7 @@ mesh/dali_lc/idle_cfg/get 3 3000
 2. **Arc level** (0..254): The arc level of that the driver should take in the idle state.
 3. **Fade in time**: The time it takes for the light to reach the trigger arc level when in the trigger LC state.
 4. **Fade out time**: The time it takes for the light to reach the idle arc level when leaving the trigger LC state.
-5. **Hold time** (0..65535): The time in seconds the device remains in the trigger state since the last received trigger. Hold time 0 means that triggers get ignored.
+5. **Hold time** (0..65535): The time in seconds the device remains in the trigger state since the last received trigger. Hold time 0 means that triggers get ignored. Sliders in the UI are capped at 120 seconds for easier manipulation.
 6. **Timeout**: Timeout in milliseconds.
 
 >[!tip] About timeouts
