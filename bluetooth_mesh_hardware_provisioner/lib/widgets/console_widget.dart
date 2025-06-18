@@ -25,6 +25,9 @@ class _ConsoleWidgetState extends State<ConsoleWidget> {
   final FocusNode _commandFocus = FocusNode();
   final FocusNode _inputFocus = FocusNode();
 
+  // Whether the console should automatically scroll to the newest entry.
+  bool _autoScroll = true;
+
   // History of previously executed commands for quick recall.
   final List<String> _history = [];
   int _historyIndex = -1;
@@ -158,9 +161,9 @@ class _ConsoleWidgetState extends State<ConsoleWidget> {
       }
     });
 
-    // Auto-scroll to bottom
+    // Auto-scroll to bottom when enabled.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
+      if (_autoScroll && _scrollController.hasClients) {
         _scrollController.animateTo(
           _scrollController.position.maxScrollExtent,
           duration: const Duration(milliseconds: 200),
@@ -290,6 +293,20 @@ class _ConsoleWidgetState extends State<ConsoleWidget> {
             children: [
               const Text('Console', style: TextStyle(fontWeight: FontWeight.bold)),
               const Spacer(),
+              Row(
+                children: [
+                  Checkbox(
+                    value: _autoScroll,
+                    onChanged: (v) {
+                      setState(() {
+                        _autoScroll = v ?? true;
+                      });
+                    },
+                  ),
+                  const Text('Auto-scroll'),
+                ],
+              ),
+              const SizedBox(width: 8),
               IconButton(
                 icon: const Icon(Icons.copy, size: 20),
                 onPressed: _copyToClipboard,

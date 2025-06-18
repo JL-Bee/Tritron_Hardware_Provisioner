@@ -18,6 +18,9 @@ class _BlocConsoleWidgetState extends State<BlocConsoleWidget> {
   final FocusNode _commandFocus = FocusNode();
   final FocusNode _inputFocus = FocusNode();
 
+  // Toggle whether new console output should automatically scroll into view.
+  bool _autoScroll = true;
+
   // History of executed commands. New commands are appended to the end.
   final List<String> _history = [];
   int _historyIndex = -1;
@@ -172,9 +175,9 @@ class _BlocConsoleWidgetState extends State<BlocConsoleWidget> {
   Widget build(BuildContext context) {
     return BlocBuilder<ProvisionerBloc, ProvisionerState>(
       builder: (context, state) {
-        // Auto-scroll when new entries are added
+        // Auto-scroll when new entries are added if enabled.
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (_scrollController.hasClients) {
+          if (_autoScroll && _scrollController.hasClients) {
             _scrollController.animateTo(
               _scrollController.position.maxScrollExtent,
               duration: const Duration(milliseconds: 200),
@@ -201,6 +204,20 @@ class _BlocConsoleWidgetState extends State<BlocConsoleWidget> {
                   Text(
                     '${state.consoleEntries.length} entries',
                     style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(width: 16),
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: _autoScroll,
+                        onChanged: (v) {
+                          setState(() {
+                            _autoScroll = v ?? true;
+                          });
+                        },
+                      ),
+                      const Text('Auto-scroll'),
+                    ],
                   ),
                   const SizedBox(width: 8),
                   IconButton(
