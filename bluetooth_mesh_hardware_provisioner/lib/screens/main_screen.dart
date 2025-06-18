@@ -1584,7 +1584,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
     );
 
     if (result == true && mounted) {
-      final duration = int.tryParse(durationController.text) ?? 0;
+      final duration = int.tryParse(durationController.text) ?? 5;
       _executeCommand(context, 'mesh/device/identify/set ${device.addressHex} $duration 3000');
     }
   }
@@ -1649,7 +1649,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
     final arcController = TextEditingController(text: '254');
     final fadeInController = TextEditingController(text: '0');
     final fadeOutController = TextEditingController(text: '7');
-    final holdTimeController = TextEditingController(text: '60');
+    final holdTimeController = TextEditingController(text: '5');
 
     final result = await showDialog<bool>(
       context: context,
@@ -1719,13 +1719,13 @@ class _BlocMainScreenState extends State<BlocMainScreen>
       final arc = int.tryParse(arcController.text) ?? 254;
       final fadeIn = int.tryParse(fadeInController.text) ?? 0;
       final fadeOut = int.tryParse(fadeOutController.text) ?? 7;
-      final holdTime = int.tryParse(holdTimeController.text) ?? 60;
+      final holdTime = int.tryParse(holdTimeController.text) ?? 5;
       _executeCommand(context, 'mesh/dali_lc/trigger_cfg/set ${device.addressHex} $arc $fadeIn $fadeOut $holdTime 3000');
     }
   }
 
   Future<void> _showDaliIdentifyDialog(BuildContext context, MeshDevice device) async {
-    final durationController = TextEditingController(text: '60');
+    final durationController = TextEditingController(text: '5');
 
     final result = await showDialog<bool>(
       context: context,
@@ -1763,7 +1763,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
     );
 
     if (result == true && mounted) {
-      final duration = int.tryParse(durationController.text) ?? 0;
+      final duration = int.tryParse(durationController.text) ?? 5;
       _executeCommand(context, 'mesh/dali_lc/identify/set ${device.addressHex} $duration 3000');
     }
   }
@@ -1771,7 +1771,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
   Future<void> _showDaliOverrideDialog(BuildContext context, MeshDevice device) async {
     final arcController = TextEditingController(text: '254');
     final fadeController = TextEditingController(text: '0');
-    final durationController = TextEditingController(text: '60');
+    final durationController = TextEditingController(text: '5');
 
     final result = await showDialog<bool>(
       context: context,
@@ -1807,6 +1807,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                 label: 'Duration',
                 min: 0,
                 max: 65535,
+                sliderMax: 120,
                 controller: durationController,
               ),
               ],
@@ -1828,7 +1829,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
     if (result == true && mounted) {
       final arc = int.tryParse(arcController.text) ?? 254;
       final fade = int.tryParse(fadeController.text) ?? 0;
-      final duration = int.tryParse(durationController.text) ?? 60;
+      final duration = int.tryParse(durationController.text) ?? 5;
       _executeCommand(context, 'mesh/dali_lc/override/set ${device.addressHex} $arc $fade $duration 3000');
     }
   }
