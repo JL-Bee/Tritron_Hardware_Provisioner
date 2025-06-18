@@ -349,6 +349,9 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     on<_HealthCheck>(_onHealthCheck);
 
     _loadCachedDevices();
+    // Trigger an initial refresh so device information is available as soon
+    // as a connection is established.
+    add(RefreshDeviceList());
   }
 
   Future<void> _onConnectToPort(ConnectToPort event, Emitter<ProvisionerState> emit) async {
@@ -896,6 +899,9 @@ Future<void> _onSendConsoleCommand(SendConsoleCommand event, Emitter<Provisioner
   void _onNodeDiscovered(NodeDiscovered event, Emitter<ProvisionerState> emit) {
     final updated = Set<String>.from(state.foundUuids)..add(event.uuid);
     emit(state.copyWith(foundUuids: updated));
+    // Immediately refresh the device list so the UI reflects newly
+    // discovered nodes without waiting for the periodic timer.
+    add(RefreshDeviceList());
     if (state.autoProvision) {
       _enqueueProvision(event.uuid);
       if (!state.isProvisioning && _provisionQueue.isNotEmpty) {
