@@ -1844,7 +1844,15 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                     'band to set sensitivity, cross count for detection confidence, '
                     'sample interval for polling rate, and buffer depth for history '
                     'size.'
-                    '\nBand: 0-1650mV, Cross: 1-500, Interval: 1-2047ms, Depth: 0-500',
+                    '\nBandWidth: 0-1650mV, when there is no movement the measured'
+                    'value is ~0mV, the badwidth indicates what signal offset there'
+                    'needs to be before its considded for the cross count'
+                    '\nCross Count: 1-500, sample count of signal crossing the '
+                    'bandwidth threshold before its considerd a trigger'
+                    '\nSample Interval: 1-2047ms, how often is the crossing of the'
+                    'bandwidth is checked'
+                    '\nBuffer Depth: 0-500, all samples are stored, the cross count '
+                    'is calculated over this buffer.'
                   ),
                   const SizedBox(height: 16),
                   SliderInput(
