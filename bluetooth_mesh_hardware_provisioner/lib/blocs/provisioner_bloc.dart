@@ -319,6 +319,9 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
 
   /// Addresses of devices that have been seen in at least one device list call.
   final Set<int> _knownDeviceAddresses = {};
+
+  /// Queue of device UUIDs pending automatic provisioning. Devices are added
+  /// when discovered and removed as they are provisioned.
   final List<String> _provisionQueue = [];
 
   ProvisionerBloc() : super(ProvisionerState()) {
@@ -481,12 +484,10 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
       }
 
       if (state.autoProvision) {
-        final wasEmpty = _provisionQueue.isEmpty;
-        bool addedAny = false;
         for (final uuid in uuids) {
-          addedAny = _enqueueProvision(uuid) || addedAny;
+          _enqueueProvision(uuid);
         }
-        if (addedAny && wasEmpty && !state.isProvisioning) {
+        if (!state.isProvisioning && _provisionQueue.isNotEmpty) {
           add(_ProcessNextProvision());
         }
       }
@@ -877,9 +878,8 @@ Future<void> _onSendConsoleCommand(SendConsoleCommand event, Emitter<Provisioner
     final updated = Set<String>.from(state.foundUuids)..add(event.uuid);
     emit(state.copyWith(foundUuids: updated));
     if (state.autoProvision) {
-      final wasEmpty = _provisionQueue.isEmpty;
-      final added = _enqueueProvision(event.uuid);
-      if (added && wasEmpty && !state.isProvisioning) {
+      _enqueueProvision(event.uuid);
+      if (!state.isProvisioning && _provisionQueue.isNotEmpty) {
         add(_ProcessNextProvision());
       }
     }
@@ -1075,12 +1075,10 @@ void _onProcessedLineReceived(_ProcessedLineReceived event, Emitter<ProvisionerS
       ToggleAutoProvision event, Emitter<ProvisionerState> emit) {
     emit(state.copyWith(autoProvision: event.enabled));
     if (event.enabled) {
-      final wasEmpty = _provisionQueue.isEmpty;
-      bool added = false;
       for (final uuid in state.foundUuids) {
-        added = _enqueueProvision(uuid) || added;
+        _enqueueProvision(uuid);
       }
-      if (added && wasEmpty && !state.isProvisioning) {
+      if (!state.isProvisioning && _provisionQueue.isNotEmpty) {
         add(_ProcessNextProvision());
       }
     }
