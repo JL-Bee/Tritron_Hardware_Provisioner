@@ -316,6 +316,8 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
   Timer? _deviceListTimer;
   /// Timer that periodically verifies the provisioner connection.
   Timer? _healthCheckTimer;
+  /// Timer that periodically scans for unprovisioned nodes.
+  Timer? _scanTimer;
 
   /// Addresses of devices that have been seen in at least one device list call.
   final Set<int> _knownDeviceAddresses = {};
@@ -408,6 +410,13 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
         (_) => add(RefreshDeviceList()),
       );
 
+      // Start periodic scanning for unprovisioned nodes
+      _scanTimer?.cancel();
+      _scanTimer = Timer.periodic(
+        const Duration(seconds: 15),
+        (_) => add(ScanDevices()),
+      );
+
       // Start periodic health checks
       _healthCheckTimer?.cancel();
       _healthCheckTimer = Timer.periodic(
@@ -437,6 +446,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     _provisioningTimer?.cancel();
     _deviceListTimer?.cancel();
     _healthCheckTimer?.cancel();
+    _scanTimer?.cancel();
 
     _meshService?.dispose();
     _processor?.dispose();
@@ -1159,6 +1169,7 @@ void _onProcessedLineReceived(_ProcessedLineReceived event, Emitter<ProvisionerS
     _provisioningTimer?.cancel();
     _deviceListTimer?.cancel();
     _healthCheckTimer?.cancel();
+    _scanTimer?.cancel();
 
     _meshService?.dispose();
     _processor?.dispose();
