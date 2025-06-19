@@ -931,11 +931,22 @@ Future<void> _onSendConsoleCommand(SendConsoleCommand event, Emitter<Provisioner
     }
   }
   void _onNodeDiscovered(NodeDiscovered event, Emitter<ProvisionerState> emit) {
+    // Ignore the node if it's already provisioned or queued for provisioning.
+    final alreadyProvisioned =
+        state.provisionedDevices.any((d) => d.uuid == event.uuid);
+    if (alreadyProvisioned ||
+        state.provisioningUuid == event.uuid ||
+        _provisionQueue.contains(event.uuid)) {
+      return;
+    }
+
     final updated = Set<String>.from(state.foundUuids)..add(event.uuid);
     emit(state.copyWith(foundUuids: updated));
-    // Immediately refresh the device list so the UI reflects newly
-    // discovered nodes without waiting for the periodic timer.
+
+    // Immediately refresh the device list so the UI reflects newly discovered
+    // nodes without waiting for the periodic timer.
     add(RefreshDeviceList());
+
     if (state.autoProvision) {
       _enqueueProvision(event.uuid);
       if (!state.isProvisioning && _provisionQueue.isNotEmpty) {

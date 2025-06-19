@@ -307,7 +307,13 @@ class _BlocMainScreenState extends State<BlocMainScreen>
             actions: [
               PopupMenuButton<String>(
                 onSelected: (value) async {
-                  if (value == 'factory_reset') {
+                  if (value == 'auto_provision') {
+                    context
+                        .read<provisioner.ProvisionerBloc>()
+                        .add(
+                          provisioner.ToggleAutoProvision(!state.autoProvision),
+                        );
+                  } else if (value == 'factory_reset') {
                     final confirm = await showDialog<bool>(
                       context: context,
                       builder: (dialogContext) => AlertDialog(
@@ -345,6 +351,20 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                   }
                 },
                 itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'auto_provision',
+                    child: Row(
+                      children: [
+                        Icon(
+                          state.autoProvision
+                              ? Icons.check_box
+                              : Icons.check_box_outline_blank,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text('Auto Provision'),
+                      ],
+                    ),
+                  ),
                   const PopupMenuItem(
                     value: 'factory_reset',
                     child: Row(
@@ -551,18 +571,6 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
-                Row(
-                  children: [
-                    Checkbox(
-                      value: state.autoProvision,
-                      onChanged: (v) => context
-                          .read<provisioner.ProvisionerBloc>()
-                          .add(provisioner.ToggleAutoProvision(v ?? false)),
-                    ),
-                    const Text('Auto Provision'),
-                  ],
-                ),
-                const SizedBox(width: 8),
                 FilledButton(
                   onPressed: state.isProvisioning || state.foundUuids.isEmpty
                       ? null
