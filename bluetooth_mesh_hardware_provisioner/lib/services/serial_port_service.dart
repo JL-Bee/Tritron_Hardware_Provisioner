@@ -107,15 +107,7 @@ class SerialPortService {
 
     try {
       final bytes = Uint8List.fromList(data.codeUnits);
-      final written = _port!.write(bytes);
-
-      if (written != bytes.length) {
-        throw SerialPortException('Failed to write all bytes: $written/${bytes.length}');
-      }
-
-      // Ensure data is flushed
-      _port!.drain();
-
+      await _writeFully(bytes);
     } catch (e) {
       print('Error sending data: $e');
       rethrow;
@@ -129,19 +121,26 @@ class SerialPortService {
     }
 
     try {
-      final written = _port!.write(bytes);
-
-      if (written != bytes.length) {
-        throw SerialPortException('Failed to write all bytes: $written/${bytes.length}');
-      }
-
-      // Ensure data is flushed
-      _port!.drain();
-
+      await _writeFully(bytes);
     } catch (e) {
       print('Error sending bytes: $e');
       rethrow;
     }
+  }
+
+  /// Write all provided [data] to the serial port, ensuring the full buffer is sent.
+  Future<void> _writeFully(Uint8List data) async {
+    var totalWritten = 0;
+    while (totalWritten < data.length) {
+      final written = _port!.write(data.sublist(totalWritten));
+      if (written <= 0) {
+        throw SerialPortException('Failed to write all bytes: $totalWritten/${data.length}');
+      }
+      totalWritten += written;
+    }
+
+    // Ensure data is flushed after writing all bytes
+    _port!.drain();
   }
 
   void _startReading() {
