@@ -1272,7 +1272,6 @@ void _onProcessedLineReceived(_ProcessedLineReceived event, Emitter<ProvisionerS
 
     return result;
   }
-  }
 
   @override
   Future<void> close() {
