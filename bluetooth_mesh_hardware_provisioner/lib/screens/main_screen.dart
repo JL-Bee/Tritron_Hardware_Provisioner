@@ -724,8 +724,9 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                   return DataRow(cells: [
                     _buildStatusIndicator(device),
                     DataCell(
-                      SizedBox(
-                        width: 90,
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
@@ -2283,9 +2284,10 @@ class _BlocMainScreenState extends State<BlocMainScreen>
   /// Display the group address and open the link management dialog on tap.
   DataCell _buildGroupCell(MeshDevice device) {
     return DataCell(
-      SizedBox(
-        width: 100,
-        child: SelectableText(
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Text(
           device.groupAddressHex,
           style: const TextStyle(fontFamily: 'monospace'),
         ),
