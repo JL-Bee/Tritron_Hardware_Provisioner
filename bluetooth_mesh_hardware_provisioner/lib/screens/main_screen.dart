@@ -11,6 +11,9 @@ import '../widgets/bloc_console_widget.dart';
 import '../widgets/slider_input.dart';
 import '../models/serial_port_info.dart';
 import '../models/mesh_device.dart';
+import '../models/dali_lc.dart';
+import '../models/radar_info.dart';
+import '../models/fade_time.dart';
 import '../services/serial_port_service.dart' as serial;
 import 'action_history_screen.dart';
 import 'provisioner_connection_screen.dart';
@@ -1857,9 +1860,14 @@ class _BlocMainScreenState extends State<BlocMainScreen>
   }
 
   Future<void> _showDaliOverrideDialog(BuildContext context, MeshDevice device) async {
-    final arcController = TextEditingController(text: '254');
-    final fadeController = TextEditingController(text: '0');
-    final durationController = TextEditingController(text: '5');
+    var overrideInfo = _latestOverride(device);
+    overrideInfo ??= await _fetchOverrideState(device);
+    final arcController = TextEditingController(
+        text: overrideInfo?.arc.toString() ?? '254');
+    final fadeController = TextEditingController(
+        text: overrideInfo?.fade.value.toString() ?? '0');
+    final durationController = TextEditingController(
+        text: overrideInfo?.duration == 0 ? '5' : overrideInfo?.duration.toString() ?? '5');
 
     final result = await showDialog<bool>(
       context: context,
@@ -1893,7 +1901,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
               const SizedBox(height: 16),
               SliderInput(
                 label: 'Duration',
-                min: 0,
+                min: 1,
                 max: 65535,
                 sliderMax: 120,
                 controller: durationController,
@@ -1923,10 +1931,16 @@ class _BlocMainScreenState extends State<BlocMainScreen>
   }
 
   Future<void> _showRadarConfigDialog(BuildContext context, MeshDevice device) async {
-    final bandController = TextEditingController(text: '210');
-    final crossController = TextEditingController(text: '31');
-    final intervalController = TextEditingController(text: '5');
-    final depthController = TextEditingController(text: '500');
+    var radar = _latestRadar(device);
+    radar ??= await _fetchRadarConfig(device);
+    final bandController = TextEditingController(
+        text: radar?.bandThreshold.toString() ?? '210');
+    final crossController = TextEditingController(
+        text: radar?.crossCount.toString() ?? '31');
+    final intervalController = TextEditingController(
+        text: radar?.sampleInterval.toString() ?? '5');
+    final depthController = TextEditingController(
+        text: radar?.bufferDepth.toString() ?? '500');
 
     final result = await showDialog<bool>(
       context: context,
@@ -2385,6 +2399,74 @@ class _BlocMainScreenState extends State<BlocMainScreen>
         ),
       ),
     );
+  }
+
+  RadarInfo? _latestRadar(MeshDevice device) {
+    final text = _commandResults['Radar Config'];
+    final enableText = _commandResults['Radar Enable'];
+    if (text != null) {
+      final match = RegExp(r'Band: (\d+)mV, Cross: (\d+), Interval: (\d+)ms, Depth: (\d+)')
+          .firstMatch(text);
+      if (match != null) {
+        return RadarInfo(
+          bandThreshold: int.parse(match.group(1)!),
+          crossCount: int.parse(match.group(2)!),
+          sampleInterval: int.parse(match.group(3)!),
+          bufferDepth: int.parse(match.group(4)!),
+          enabled: enableText == 'Enabled',
+        );
+      }
+    }
+    return context.read<provisioner.ProvisionerBloc>()
+        .state
+        .radarInfo[device.address];
+  }
+
+  DaliOverrideState? _latestOverride(MeshDevice device) {
+    final text = _commandResults['DALI Override'];
+    if (text != null && text != 'Inactive') {
+      final match =
+          RegExp(r'Arc: (\d+), Fade: (\d+), Duration: (\d+)s').firstMatch(text);
+      if (match != null) {
+        final arc = int.parse(match.group(1)!);
+        final fade = FadeTime.fromValue(int.parse(match.group(2)!));
+        final dur = int.parse(match.group(3)!);
+        return DaliOverrideState(arc, fade, dur);
+      }
+    }
+    return context
+        .read<provisioner.ProvisionerBloc>()
+        .state
+        .daliInfo[device.address]
+        ?.override;
+  }
+
+  Future<RadarInfo?> _fetchRadarConfig(MeshDevice device) async {
+    final key = 'radar_cfg_get_${device.address}';
+    _executeCommand(context, 'mesh/radar/cfg/get ${device.addressHex} 3000',
+        stateKey: key);
+    while (true) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      final status = _commandStates[key]?.status;
+      if (status != null && status != CommandStatus.loading) {
+        break;
+      }
+    }
+    return _latestRadar(device);
+  }
+
+  Future<DaliOverrideState?> _fetchOverrideState(MeshDevice device) async {
+    final key = 'dali_override_get_${device.address}';
+    _executeCommand(context, 'mesh/dali_lc/override/get ${device.addressHex} 3000',
+        stateKey: key);
+    while (true) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      final status = _commandStates[key]?.status;
+      if (status != null && status != CommandStatus.loading) {
+        break;
+      }
+    }
+    return _latestOverride(device);
   }
 
   Future<void> _confirmUnprovision(BuildContext context, MeshDevice device) async {
