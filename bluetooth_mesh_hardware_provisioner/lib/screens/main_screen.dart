@@ -40,6 +40,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
   // Add these new fields for tracking command states
   final Map<String, CommandState> _commandStates = {};
   final Map<String, String> _commandResults = {};
+  final Map<String, String> _pendingSetLabels = {};
   List<int> _lastSubscriptions = [];
 
   @override
@@ -74,11 +75,21 @@ class _BlocMainScreenState extends State<BlocMainScreen>
         // Parse based on the command key
         if (key.contains('label_get')) {
           if (!cleanResponse.contains('\$error') && !cleanResponse.contains('\$ok')) {
-            // Remove quotes if present
             final label = cleanResponse.replaceAll('"', '');
+            final address = key.split('_').last;
+            final expected = _pendingSetLabels[address];
             setState(() {
               _commandResults['Device Label'] = label;
+              _commandStates[key] = CommandState(
+                status: expected == null || expected == label
+                    ? CommandStatus.success
+                    : CommandStatus.failure,
+                timestamp: DateTime.now(),
+              );
             });
+            if (expected != null) {
+              _pendingSetLabels.remove(address);
+            }
           }
         } else if (key.contains('dali_idle_get')) {
           if (cleanResponse.contains(',')) {
@@ -2015,10 +2026,11 @@ class _BlocMainScreenState extends State<BlocMainScreen>
     );
 
     if (label != null && mounted) {
-      context.read<provisioner.ProvisionerBloc>().add(
-        provisioner.SendConsoleCommand(
-          'mesh/device/label/set ${device.addressHex} $label',
-        ),
+      _pendingSetLabels[device.addressHex] = label;
+      _executeCommand(
+        context,
+        'mesh/device/label/set ${device.addressHex} $label',
+        stateKey: 'label_set_${device.address}',
       );
     }
   }
