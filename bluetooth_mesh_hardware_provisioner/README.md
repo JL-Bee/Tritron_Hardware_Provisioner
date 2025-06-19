@@ -32,6 +32,7 @@ A comprehensive Flutter application for provisioning and managing Bluetooth mesh
 - Model configuration viewing (SIG and Vendor models)
 - Subscribe address management
 - Multi-select subscription dialog with optional self-subscription
+- Quick linking to devices directly from the group column
 - Publish configuration
 - Health status monitoring
 - Intuitive sliders for configuring idle, trigger, override and radar settings

@@ -723,10 +723,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                         _tabController.animateTo(1);
                       },
                     ),
-                    DataCell(SizedBox(
-                      width: 80,
-                      child: SelectableText(device.groupAddressHex),
-                    ), onTap: () => _showGroupDevicesDialog(context, device.groupAddress)),
+                    _buildGroupCell(device),
                     DataCell(SizedBox(
                       width: 200,
                       child: SelectableText(
@@ -2194,6 +2191,33 @@ class _BlocMainScreenState extends State<BlocMainScreen>
       height: 12,
       decoration: BoxDecoration(color: color, shape: BoxShape.circle),
     ));
+  }
+
+  /// Display the group address with an option to link the device to others.
+  DataCell _buildGroupCell(MeshDevice device) {
+    return DataCell(
+      SizedBox(
+        width: 100,
+        child: Row(
+          children: [
+            Expanded(
+              child: SelectableText(
+                device.groupAddressHex,
+                style: const TextStyle(fontFamily: 'monospace'),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.link, size: 16),
+              tooltip: 'Link device',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              onPressed: () => _showAddSubscriptionDialog(context, device),
+            ),
+          ],
+        ),
+      ),
+      onTap: () => _showGroupDevicesDialog(context, device.groupAddress),
+    );
   }
 
   DataCell _buildCopyableCell(String label, String value) {
