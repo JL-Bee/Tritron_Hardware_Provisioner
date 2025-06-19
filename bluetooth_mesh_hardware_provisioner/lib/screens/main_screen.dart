@@ -771,7 +771,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                         IconButton(
                           icon: Icon(
                             _overrideStates[device.address] ?? false
-                                ? Icons.lightbulb
+                                ? Icons.wb_incandescent
                                 : Icons.lightbulb_outline,
                           ),
                           tooltip: 'Override',
