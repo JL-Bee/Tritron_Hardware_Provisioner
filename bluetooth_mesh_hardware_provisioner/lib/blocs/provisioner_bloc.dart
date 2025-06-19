@@ -314,6 +314,8 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
   /// Timer that periodically refreshes the device list to update heartbeat
   /// information. Cancelled on disconnect.
   Timer? _deviceListTimer;
+  /// Timer used for a one-off refresh shortly after connection.
+  Timer? _initialRefreshTimer;
   /// Timer that periodically verifies the provisioner connection.
   Timer? _healthCheckTimer;
   /// Timer that periodically scans for unprovisioned nodes.
@@ -354,6 +356,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     // Trigger an initial refresh so device information is available as soon
     // as a connection is established.
     add(RefreshDeviceList());
+
   }
 
   Future<void> _onConnectToPort(ConnectToPort event, Emitter<ProvisionerState> emit) async {
@@ -403,6 +406,14 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
       add(ScanDevices());
       add(RefreshDeviceList());
 
+      // Perform another refresh shortly after connecting so devices appear
+      // within a couple of seconds even if the first attempt occurs too early.
+      _initialRefreshTimer?.cancel();
+      _initialRefreshTimer = Timer(
+        const Duration(seconds: 2),
+        () => add(RefreshDeviceList()),
+      );
+
       // Start periodic device list polling
       _deviceListTimer?.cancel();
       _deviceListTimer = Timer.periodic(
@@ -445,6 +456,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     _nodeFoundSubscription?.cancel();
     _provisioningTimer?.cancel();
     _deviceListTimer?.cancel();
+    _initialRefreshTimer?.cancel();
     _healthCheckTimer?.cancel();
     _scanTimer?.cancel();
 
