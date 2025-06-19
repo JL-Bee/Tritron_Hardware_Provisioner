@@ -5,6 +5,7 @@ import 'dart:async';
 import '../models/serial_port_info.dart';
 import '../models/mesh_device.dart';
 import '../models/dali_lc.dart';
+import '../models/fade_time.dart';
 import '../models/radar_info.dart';
 import '../services/serial_port_service.dart';
 import '../services/command_processor.dart';
@@ -1084,6 +1085,22 @@ void _onProcessedLineReceived(_ProcessedLineReceived event, Emitter<ProvisionerS
       }
       if (newDevice != null) {
         add(AddSubscription(newDevice.address, newDevice.groupAddress));
+
+        // Apply default DALI LC configuration
+        try {
+          await _meshService!.setDaliIdleConfig(
+            newDevice.address,
+            0,
+            FadeTime.twoSeconds,
+          );
+          await _meshService!.setDaliTriggerConfig(
+            newDevice.address,
+            254,
+            FadeTime.zero,
+            FadeTime.sixSeconds,
+            5,
+          );
+        } catch (_) {}
       }
 
       // Do another refresh to ensure we have the latest data
