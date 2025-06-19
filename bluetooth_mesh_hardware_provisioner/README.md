@@ -46,6 +46,7 @@ A comprehensive Flutter application for provisioning and managing Bluetooth mesh
 - Command history
 - Bidirectional communication monitoring
 - Optional auto-scroll toggle
+- Only lines starting with `~>` are processed to avoid Zephyr log noise
 
 ## Architecture
 

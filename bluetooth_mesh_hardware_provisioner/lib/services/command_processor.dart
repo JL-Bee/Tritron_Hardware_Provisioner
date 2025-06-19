@@ -52,12 +52,15 @@ class CommandProcessor {
       // Remove ANSI escape sequences
       trimmed = trimmed.replaceAll(RegExp(r'\x1B\[[0-9;]*[A-Za-z]'), '');
 
-      // Determine line type and emit
-      _lineController.add(_processLine(trimmed));
+      // Determine line type and emit only if relevant
+      final processed = _processLine(trimmed);
+      if (processed != null) {
+        _lineController.add(processed);
+      }
     }
   }
 
-  ProcessedLine _processLine(String line) {
+  ProcessedLine? _processLine(String line) {
     // Check for RTM console response prefix
     if (line.startsWith('~>')) {
       final content = line.substring(2);
@@ -104,31 +107,15 @@ class CommandProcessor {
 
     // Check for log levels
     if (line.contains('<err>')) {
-      return ProcessedLine(
-        raw: line,
-        type: LineType.error,
-        content: line,
-      );
+      return null; // Ignore error logs
     } else if (line.contains('<wrn>')) {
-      return ProcessedLine(
-        raw: line,
-        type: LineType.warning,
-        content: line,
-      );
+      return null; // Ignore warning logs
     } else if (line.contains('<inf>')) {
-      return ProcessedLine(
-        raw: line,
-        type: LineType.info,
-        content: line,
-      );
+      return null; // Ignore info logs
     }
 
     // Default to raw line
-    return ProcessedLine(
-      raw: line,
-      type: LineType.other,
-      content: line,
-    );
+    return null; // Ignore any other lines
   }
 
   void dispose() {
