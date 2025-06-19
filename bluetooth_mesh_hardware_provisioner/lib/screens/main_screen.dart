@@ -2281,16 +2281,47 @@ class _BlocMainScreenState extends State<BlocMainScreen>
     ));
   }
 
-  /// Display the group address and open the link management dialog on tap.
+  /// Display the group address and other subscriptions.
+  ///
+  /// The device's own group address is shown in **bold** when multiple
+  /// subscriptions exist. Tapping the cell opens the link management dialog.
   DataCell _buildGroupCell(MeshDevice device) {
+    final bloc = context.read<provisioner.ProvisionerBloc>();
+
     return DataCell(
-      Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Text(
-          device.groupAddressHex,
-          style: const TextStyle(fontFamily: 'monospace'),
-        ),
+      FutureBuilder<List<int>>(
+        future: bloc.fetchSubscriptions(device.address),
+        builder: (context, snapshot) {
+          final subs = snapshot.data ?? [device.groupAddress];
+          if (!subs.contains(device.groupAddress)) subs.insert(0, device.groupAddress);
+
+          final other = subs.where((a) => a != device.groupAddress).toList();
+          final spanChildren = <TextSpan>[
+            TextSpan(
+              text: '0x${device.groupAddress.toRadixString(16).padLeft(4, '0').toUpperCase()}',
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontWeight: other.isEmpty ? FontWeight.normal : FontWeight.bold,
+              ),
+            ),
+          ];
+
+          if (other.isNotEmpty) {
+            final rest = other
+                .map((a) => '0x${a.toRadixString(16).padLeft(4, '0').toUpperCase()}')
+                .join(', ');
+            spanChildren.add(TextSpan(
+              text: ', $rest',
+              style: const TextStyle(fontFamily: 'monospace'),
+            ));
+          }
+
+          return Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text.rich(TextSpan(children: spanChildren)),
+          );
+        },
       ),
       onTap: () => _showManageLinksDialog(context, device),
     );

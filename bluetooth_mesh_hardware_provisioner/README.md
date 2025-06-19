@@ -33,6 +33,7 @@ A comprehensive Flutter application for provisioning and managing Bluetooth mesh
 - Subscribe address management
 - Multi-select subscription dialog with optional self-subscription
 - Quick linking to devices directly from the group column
+- Display all subscribed groups in the device list with the node's own group in **bold** when multiple groups are present
 - Publish configuration
 - Health status monitoring
 - Intuitive sliders for configuring idle, trigger, override and radar settings
