@@ -171,12 +171,15 @@ class MeshCommandService {
     return uuids;
   }
 
-/// Get list of provisioned devices
-Future<List<MeshDevice>> getProvisionedDevices() async {
+/// Get list of provisioned devices.
+///
+/// Returns `null` if the command fails so callers can decide
+/// whether to keep the existing list or handle the error.
+Future<List<MeshDevice>?> getProvisionedDevices() async {
   final result = await executeCommand('mesh/device/list');
 
   if (!result.success) {
-    return [];
+    return null;
   }
 
   // Parse device list
