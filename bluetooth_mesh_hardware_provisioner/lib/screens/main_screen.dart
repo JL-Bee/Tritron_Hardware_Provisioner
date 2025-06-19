@@ -40,6 +40,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
   // Add these new fields for tracking command states
   final Map<String, CommandState> _commandStates = {};
   final Map<String, String> _commandResults = {};
+  final Map<String, String> _pendingGets = {};
   List<int> _lastSubscriptions = [];
   final Map<int, bool> _overrideStates = {};
 
@@ -166,6 +167,11 @@ class _BlocMainScreenState extends State<BlocMainScreen>
               timestamp: DateTime.now(),
             );
           });
+          final followUp = _pendingGets.remove(key);
+          if (followUp != null) {
+            final followKey = _stateKeyForCommand(followUp);
+            _executeCommand(context, followUp, stateKey: followKey);
+          }
         } else if (cleanResponse == "\$error" || cleanResponse == "\$unknown") {
           setState(() {
             _commandStates[key] = CommandState(
@@ -1497,6 +1503,56 @@ class _BlocMainScreenState extends State<BlocMainScreen>
     );
   }
 
+  String? _followUpGetCommand(String command) {
+    final parts = command.split(' ');
+    if (parts.length < 2) return null;
+    final addr = parts[1];
+    if (command.startsWith('mesh/device/label/set')) {
+      return 'mesh/device/label/get $addr 3000';
+    } else if (command.startsWith('mesh/dali_lc/idle_cfg/set')) {
+      return 'mesh/dali_lc/idle_cfg/get $addr 3000';
+    } else if (command.startsWith('mesh/dali_lc/trigger_cfg/set')) {
+      return 'mesh/dali_lc/trigger_cfg/get $addr 3000';
+    } else if (command.startsWith('mesh/dali_lc/identify/set') ||
+        command.startsWith('mesh/device/identify/set')) {
+      return 'mesh/dali_lc/identify/get $addr 3000';
+    } else if (command.startsWith('mesh/dali_lc/override/set')) {
+      return 'mesh/dali_lc/override/get $addr 3000';
+    } else if (command.startsWith('mesh/radar/cfg/set')) {
+      return 'mesh/radar/cfg/get $addr 3000';
+    } else if (command.startsWith('mesh/radar/enable/set')) {
+      return 'mesh/radar/enable/get $addr 3000';
+    }
+    return null;
+  }
+
+  String _stateKeyForCommand(String command) {
+    final parts = command.split(' ');
+    if (parts.length < 2) return command;
+    final addrStr = parts[1];
+    final addr = int.tryParse(
+        addrStr.startsWith('0x') ? addrStr.substring(2) : addrStr,
+        radix: addrStr.startsWith('0x') ? 16 : 10);
+    if (command.startsWith('mesh/device/label/get')) {
+      return 'label_get_$addr';
+    } else if (command.startsWith('mesh/dali_lc/idle_cfg/get')) {
+      return 'dali_idle_get_$addr';
+    } else if (command.startsWith('mesh/dali_lc/trigger_cfg/get')) {
+      return 'dali_trigger_get_$addr';
+    } else if (command.startsWith('mesh/dali_lc/identify/get')) {
+      return 'dali_identify_get_$addr';
+    } else if (command.startsWith('mesh/dali_lc/override/get')) {
+      return 'dali_override_get_$addr';
+    } else if (command.startsWith('mesh/radar/cfg/get')) {
+      return 'radar_cfg_get_$addr';
+    } else if (command.startsWith('mesh/radar/enable/get')) {
+      return 'radar_enable_get_$addr';
+    } else if (command.startsWith('mesh/device/sub/get')) {
+      return 'sub_get_$addr';
+    }
+    return command;
+  }
+
   // Helper method to execute commands with state tracking
   void _executeCommand(BuildContext context, String command, {String? stateKey}) {
     // Generate a state key if not provided
@@ -1506,6 +1562,11 @@ class _BlocMainScreenState extends State<BlocMainScreen>
     setState(() {
       _commandStates[key] = CommandState(status: CommandStatus.loading);
     });
+
+    final followUp = _followUpGetCommand(command);
+    if (followUp != null) {
+      _pendingGets[key] = followUp;
+    }
 
     // Send command
     context.read<provisioner.ProvisionerBloc>().add(
