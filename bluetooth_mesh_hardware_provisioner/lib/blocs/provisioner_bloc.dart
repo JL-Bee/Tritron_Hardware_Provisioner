@@ -325,6 +325,12 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
   /// Addresses of devices that have been seen in at least one device list call.
   final Set<int> _knownDeviceAddresses = {};
 
+  /// Cached subscription lists keyed by node address.
+  final Map<int, List<int>> _subscriptionCache = {};
+
+  /// Pending subscription requests to avoid duplicate queries.
+  final Map<int, Future<List<int>>> _subscriptionRequests = {};
+
   /// Queue of device UUIDs pending automatic provisioning. Devices are added
   /// when discovered and removed as they are provisioned.
   final List<String> _provisionQueue = [];
@@ -845,7 +851,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
 
   Future<void> _loadDeviceSubscriptions(int address, Emitter<ProvisionerState> emit) async {
     try {
-      final subscriptions = await _meshService!.getSubscriptions(address);
+      final subscriptions = await fetchSubscriptions(address, refresh: true);
       emit(state.copyWith(selectedDeviceSubscriptions: subscriptions));
     } catch (e) {
       emit(state.copyWith(
@@ -1242,13 +1248,30 @@ void _onProcessedLineReceived(_ProcessedLineReceived event, Emitter<ProvisionerS
   ///
   /// Returns an empty list if the provisioner is not connected or the
   /// command fails.
-  Future<List<int>> fetchSubscriptions(int address) async {
+  Future<List<int>> fetchSubscriptions(int address, {bool refresh = false}) async {
     if (_meshService == null) return [];
-    try {
-      return await _meshService!.getSubscriptions(address);
-    } catch (_) {
-      return [];
+
+    if (!refresh) {
+      if (_subscriptionCache.containsKey(address)) {
+        return _subscriptionCache[address]!;
+      }
+      if (_subscriptionRequests.containsKey(address)) {
+        return _subscriptionRequests[address]!;
+      }
     }
+
+    final future = _meshService!
+        .getSubscriptions(address)
+        .catchError((_) => <int>[]);
+
+    _subscriptionRequests[address] = future;
+
+    final result = await future;
+    _subscriptionCache[address] = result;
+    _subscriptionRequests.remove(address);
+
+    return result;
+  }
   }
 
   @override
