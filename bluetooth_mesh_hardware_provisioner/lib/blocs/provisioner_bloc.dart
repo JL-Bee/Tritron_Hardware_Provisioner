@@ -577,7 +577,14 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
         adjusted.add(device);
       }
 
-      emit(state.copyWith(provisionedDevices: adjusted));
+      final provisionedUuids = adjusted.map((d) => d.uuid).toSet();
+      final filteredFound = Set<String>.from(state.foundUuids)
+        ..removeWhere(provisionedUuids.contains);
+
+      emit(state.copyWith(
+        provisionedDevices: adjusted,
+        foundUuids: filteredFound,
+      ));
       unawaited(_deviceCache.saveDevices(adjusted));
     } catch (e) {
       emit(state.copyWith(
