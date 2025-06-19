@@ -18,7 +18,7 @@ import '../services/serial_port_service.dart' as serial;
 import 'action_history_screen.dart';
 import 'provisioner_connection_screen.dart';
 import 'dart:async';
-
+import 'dart:math';
 
 enum CommandStatus { idle, loading, success, failure }
 
@@ -777,11 +777,12 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                           onPressed: () => _quickIdentify(context, device),
                         ),
                         IconButton(
-                          icon: Icon(
-                            _overrideStates[device.address] ?? false
-                                ? Icons.wb_incandescent
-                                : Icons.lightbulb_outline,
-                          ),
+                          icon: (_overrideStates[device.address] ?? false)
+                            ? Icon(Icons.wb_incandescent_outlined )
+                            : Transform.rotate(
+                                angle: pi,
+                                child: Icon(Icons.lightbulb),
+                              ),
                           tooltip: 'Override',
                           onPressed: () => _toggleOverride(context, device),
                         ),
