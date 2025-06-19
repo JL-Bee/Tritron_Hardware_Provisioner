@@ -788,7 +788,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                           icon: Icon(
                             _identifyBlinkStates[device.address] ?? false
                                 ? Icons.wb_sunny_rounded
-                                : Icons.circle_rounded,
+                                : Icons.circle_outlined,
                           ),
                           tooltip: 'Identify',
                           onPressed: () => _quickIdentify(context, device),
@@ -2173,10 +2173,10 @@ class _BlocMainScreenState extends State<BlocMainScreen>
     if (selection != null && mounted) {
       final band = (1650 * selection / 100).round();
       const crossCounts = {
-        10: 47,
-        25: 118,
-        50: 235,
-        75: 352,
+        10: 352,
+        25: 235,
+        50: 118,
+        75: 47,
         100: 30,
       };
       final cross = crossCounts[selection] ?? 31;
