@@ -2265,30 +2265,17 @@ class _BlocMainScreenState extends State<BlocMainScreen>
     ));
   }
 
-  /// Display the group address with an option to link the device to others.
+  /// Display the group address and open the link management dialog on tap.
   DataCell _buildGroupCell(MeshDevice device) {
     return DataCell(
       SizedBox(
         width: 100,
-        child: Row(
-          children: [
-            Expanded(
-              child: SelectableText(
-                device.groupAddressHex,
-                style: const TextStyle(fontFamily: 'monospace'),
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.link, size: 16),
-              tooltip: 'Link device',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              onPressed: () => _showAddSubscriptionDialog(context, device),
-            ),
-          ],
+        child: SelectableText(
+          device.groupAddressHex,
+          style: const TextStyle(fontFamily: 'monospace'),
         ),
       ),
-      onTap: () => _showGroupDevicesDialog(context, device.groupAddress),
+      onTap: () => _showManageLinksDialog(context, device),
     );
   }
 
@@ -2509,38 +2496,79 @@ class _BlocMainScreenState extends State<BlocMainScreen>
     }
   }
 
-  /// Display a dialog listing all devices that share [groupAddress].
-  Future<void> _showGroupDevicesDialog(BuildContext context, int groupAddress) async {
-    final devices = context
-        .read<provisioner.ProvisionerBloc>()
-        .state
-        .provisionedDevices
-        .where((d) => d.groupAddress == groupAddress)
-        .toList();
+  /// Manage which devices are subscribed to [device]'s group.
+  Future<void> _showManageLinksDialog(
+    BuildContext context,
+    MeshDevice device,
+  ) async {
+    final bloc = context.read<provisioner.ProvisionerBloc>();
+    final all = bloc.state.provisionedDevices;
+    final group = device.groupAddress;
 
-    await showDialog<void>(
+    // Fetch current subscriptions for all devices in parallel.
+    final subs = await Future.wait(
+        all.map((d) => bloc.fetchSubscriptions(d.address)));
+
+    final initial = <int, bool>{};
+    for (var i = 0; i < all.length; i++) {
+      final d = all[i];
+      initial[d.address] =
+          d.address == device.address || subs[i].contains(group);
+    }
+
+    final selections = Map<int, bool>.from(initial);
+
+    final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text('Group 0x${groupAddress.toRadixString(16).padLeft(4, '0').toUpperCase()}'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView(
-            shrinkWrap: true,
-            children: devices
-                .map((d) => ListTile(
-                      title: Text(d.label ?? d.addressHex),
-                      subtitle: Text(d.addressHex),
-                    ))
-                .toList(),
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setState) => AlertDialog(
+            title: Text('Links for ${device.groupAddressHex}'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: ListView(
+                shrinkWrap: true,
+                children: all.map((d) {
+                  final value = selections[d.address] ?? false;
+                  return CheckboxListTile(
+                    title: Text(d.label ?? d.addressHex),
+                    subtitle: Text('Group: ${d.groupAddressHex}'),
+                    value: value,
+                    onChanged: d.address == device.address
+                        ? null
+                        : (v) => setState(() {
+                              selections[d.address] = v ?? false;
+                            }),
+                  );
+                }).toList(),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('Save'),
+              ),
+            ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
+        );
+      },
     );
+
+    if (confirmed == true && mounted) {
+      for (final d in all) {
+        final before = initial[d.address] ?? false;
+        final after = selections[d.address] ?? false;
+        if (after && !before) {
+          bloc.add(provisioner.AddSubscriptions(d.address, [group]));
+        } else if (!after && before) {
+          bloc.add(provisioner.RemoveSubscription(d.address, group));
+        }
+      }
+    }
   }
+
 }
