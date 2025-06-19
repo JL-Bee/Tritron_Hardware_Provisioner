@@ -47,6 +47,9 @@ class _BlocMainScreenState extends State<BlocMainScreen>
   final Map<String, String> _pendingSetLabels = {};
   List<int> _lastSubscriptions = [];
   final Map<int, bool> _overrideStates = {};
+  final Map<int, bool> _identifyBlinkStates = {};
+  final Map<int, Timer> _identifyBlinkTimers = {};
+  final Map<int, Timer> _identifyStopTimers = {};
 
   @override
   void initState() {
@@ -115,13 +118,17 @@ class _BlocMainScreenState extends State<BlocMainScreen>
         } else if (key.contains('dali_identify_get')) {
           if (RegExp(r'^\d+$').hasMatch(cleanResponse)) {
             final time = int.tryParse(cleanResponse) ?? 0;
+            final addr = int.parse(key.split('_').last);
             String displayValue;
             if (time == 0) {
               displayValue = 'Inactive';
+              _stopIdentifyBlink(addr);
             } else if (time == 65535) {
               displayValue = 'Active until reboot';
+              _startIdentifyBlink(addr, 65535);
             } else {
               displayValue = '${time}s remaining';
+              _startIdentifyBlink(addr, time);
             }
             setState(() {
               _commandResults['DALI Identify Time'] = displayValue;
@@ -201,6 +208,12 @@ class _BlocMainScreenState extends State<BlocMainScreen>
   @override
   void dispose() {
     _tabController.dispose();
+    for (final t in _identifyBlinkTimers.values) {
+      t.cancel();
+    }
+    for (final t in _identifyStopTimers.values) {
+      t.cancel();
+    }
     super.dispose();
   }
 
@@ -772,7 +785,11 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                           },
                         ),
                         IconButton(
-                          icon: const Icon(Icons.highlight),
+                          icon: Icon(
+                            _identifyBlinkStates[device.address] ?? false
+                                ? Icons.wb_sunny_rounded
+                                : Icons.circle_rounded,
+                          ),
                           tooltip: 'Identify',
                           onPressed: () => _quickIdentify(context, device),
                         ),
@@ -1162,7 +1179,9 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                             child: _buildActionButton(
                               context,
                               'SET',
-                              Icons.lightbulb,
+                              _identifyBlinkStates[device.address] ?? false
+                                  ? Icons.wb_sunny_rounded
+                                  : Icons.circle_rounded,
                               () => _showDaliIdentifyDialog(context, device),
                               stateKey: 'dali_identify_set_${device.address}',
                             ),
@@ -1688,6 +1707,11 @@ class _BlocMainScreenState extends State<BlocMainScreen>
     if (result == true && mounted) {
       final duration = int.tryParse(durationController.text) ?? 5;
       _executeCommand(context, 'mesh/device/identify/set ${device.addressHex} $duration 3000');
+      if (duration == 0) {
+        _stopIdentifyBlink(device.address);
+      } else {
+        _startIdentifyBlink(device.address, duration);
+      }
     }
   }
 
@@ -1867,6 +1891,11 @@ class _BlocMainScreenState extends State<BlocMainScreen>
     if (result == true && mounted) {
       final duration = int.tryParse(durationController.text) ?? 5;
       _executeCommand(context, 'mesh/dali_lc/identify/set ${device.addressHex} $duration 3000');
+      if (duration == 0) {
+        _stopIdentifyBlink(device.address);
+      } else {
+        _startIdentifyBlink(device.address, duration);
+      }
     }
   }
 
@@ -2079,6 +2108,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
       'mesh/dali_lc/identify/set ${device.addressHex} 3 3000',
       stateKey: 'dali_identify_quick_${device.address}',
     );
+    _startIdentifyBlink(device.address, 3);
   }
 
   void _toggleOverride(BuildContext context, MeshDevice device) {
@@ -2092,6 +2122,33 @@ class _BlocMainScreenState extends State<BlocMainScreen>
     );
     setState(() {
       _overrideStates[device.address] = !isOn;
+    });
+  }
+
+  void _startIdentifyBlink(int address, int duration) {
+    _identifyBlinkTimers[address]?.cancel();
+    _identifyStopTimers[address]?.cancel();
+    _identifyBlinkStates[address] = true;
+    _identifyBlinkTimers[address] =
+        Timer.periodic(const Duration(milliseconds: 500), (_) {
+      setState(() {
+        _identifyBlinkStates[address] = !(_identifyBlinkStates[address] ?? false);
+      });
+    });
+    if (duration > 0 && duration < 65535) {
+      _identifyStopTimers[address] = Timer(Duration(seconds: duration), () {
+        _stopIdentifyBlink(address);
+      });
+    }
+  }
+
+  void _stopIdentifyBlink(int address) {
+    _identifyBlinkTimers[address]?.cancel();
+    _identifyStopTimers[address]?.cancel();
+    _identifyBlinkTimers.remove(address);
+    _identifyStopTimers.remove(address);
+    setState(() {
+      _identifyBlinkStates[address] = false;
     });
   }
 
