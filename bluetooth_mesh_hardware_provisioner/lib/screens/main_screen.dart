@@ -2475,24 +2475,14 @@ class _BlocMainScreenState extends State<BlocMainScreen>
             style: FilledButton.styleFrom(backgroundColor: Colors.orange),
             child: const Text('Reset Device'),
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, 'remove'),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Remove from DB'),
-          ),
         ],
       ),
     );
 
-    if (action != null && mounted) {
-      if (action == 'reset') {
-        context.read<provisioner.ProvisionerBloc>().add(provisioner.UnprovisionDevice(device));
-      } else if (action == 'remove') {
-        // Remove the device from the database
-        context.read<provisioner.ProvisionerBloc>().add(
-          provisioner.RemoveDeviceFromDb(device),
-        );
-      }
+    if (action == 'reset' && mounted) {
+      context
+          .read<provisioner.ProvisionerBloc>()
+          .add(provisioner.UnprovisionDevice(device));
     }
   }
 
