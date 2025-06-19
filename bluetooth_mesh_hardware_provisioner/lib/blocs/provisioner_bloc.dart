@@ -402,16 +402,28 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
         connectedPort: event.port,
       ));
 
-      // Initial scan
+      // Wait a brief moment for the connection to stabilize before initial scan
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      // Initial scan and refresh
       add(ScanDevices());
       add(RefreshDeviceList());
 
-      // Perform another refresh shortly after connecting so devices appear
-      // within a couple of seconds even if the first attempt occurs too early.
+      // Perform multiple refreshes shortly after connecting to ensure devices appear quickly
       _initialRefreshTimer?.cancel();
-      _initialRefreshTimer = Timer(
-        const Duration(seconds: 2),
-        () => add(RefreshDeviceList()),
+      int refreshCount = 0;
+      _initialRefreshTimer = Timer.periodic(
+        const Duration(seconds: 1),
+        (timer) {
+          refreshCount++;
+          add(RefreshDeviceList());
+          add(ScanDevices());
+
+          // Stop after 3 refreshes (at 1s, 2s, and 3s)
+          if (refreshCount >= 3) {
+            timer.cancel();
+          }
+        },
       );
 
       // Start periodic device list polling
@@ -1013,22 +1025,28 @@ void _onProcessedLineReceived(_ProcessedLineReceived event, Emitter<ProvisionerS
 
   /// Handle the finalisation of a provisioning task once the device reports
   /// completion or failure.
+  /// Handle the finalisation of a provisioning task once the device reports
+  /// completion or failure.
   Future<void> _finalizeProvisioning(String uuid, Emitter<ProvisionerState> emit) async {
     _provisioningTimer?.cancel();
 
     final result = await _meshService!.getProvisioningResult();
     if (result == 0) {
+      // First, get the updated device list from the provisioner
+      final devices = await _meshService!.getProvisionedDevices();
+
+      // Remove the placeholder device and update with the real device list
       final updatedUuids = Set<String>.from(state.foundUuids)..remove(uuid);
       emit(state.copyWith(
         foundUuids: updatedUuids,
         isProvisioning: false,
         provisioningUuid: null,
+        provisionedDevices: devices, // Update with the fresh list
       ));
 
-      // Retrieve the newly provisioned device so we can subscribe it to its
+      // Find the newly provisioned device so we can subscribe it to its
       // own group address by default. This allows the provisioner to receive
       // status messages from the node immediately after provisioning.
-      final devices = await _meshService!.getProvisionedDevices();
       MeshDevice? newDevice;
       for (final d in devices) {
         if (d.uuid == uuid) {
@@ -1040,7 +1058,9 @@ void _onProcessedLineReceived(_ProcessedLineReceived event, Emitter<ProvisionerS
         add(AddSubscription(newDevice.address, newDevice.groupAddress));
       }
 
+      // Do another refresh to ensure we have the latest data
       add(RefreshDeviceList());
+
       if (state.autoProvision) {
         // Scan again for any additional unprovisioned nodes so they can be
         // queued for automatic provisioning.
