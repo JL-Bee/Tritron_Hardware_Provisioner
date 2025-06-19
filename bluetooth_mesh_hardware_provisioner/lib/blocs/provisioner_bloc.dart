@@ -536,6 +536,13 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
 
     try {
       final fetched = await _meshService!.getProvisionedDevices();
+      if (fetched == null) {
+        emit(state.copyWith(
+          currentError: AppError(message: 'Failed to refresh devices'),
+        ));
+        return;
+      }
+
       final adjusted = <MeshDevice>[];
       for (var device in fetched) {
         if (!_knownDeviceAddresses.contains(device.address)) {
@@ -585,7 +592,8 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
       if (!success) {
         // Check if device is already provisioned
         final devices = await _meshService!.getProvisionedDevices();
-        final isAlreadyProvisioned = devices.any((d) => d.uuid == event.uuid);
+        final isAlreadyProvisioned =
+            devices != null && devices.any((d) => d.uuid == event.uuid);
 
         if (isAlreadyProvisioned) {
         emit(state.copyWith(
@@ -1034,6 +1042,15 @@ void _onProcessedLineReceived(_ProcessedLineReceived event, Emitter<ProvisionerS
     if (result == 0) {
       // First, get the updated device list from the provisioner
       final devices = await _meshService!.getProvisionedDevices();
+      if (devices == null) {
+        emit(state.copyWith(
+          isProvisioning: false,
+          provisioningUuid: null,
+          currentError: AppError(message: 'Failed to refresh devices'),
+        ));
+        add(_ProcessNextProvision());
+        return;
+      }
 
       // Remove the placeholder device and update with the real device list
       final updatedUuids = Set<String>.from(state.foundUuids)..remove(uuid);
