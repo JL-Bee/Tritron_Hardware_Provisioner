@@ -2106,9 +2106,17 @@ class _BlocMainScreenState extends State<BlocMainScreen>
 
     if (selection != null && mounted) {
       final band = (1650 * selection / 100).round();
+      const crossCounts = {
+        10: 47,
+        25: 118,
+        50: 235,
+        75: 352,
+        100: 30,
+      };
+      final cross = crossCounts[selection] ?? 31;
       _executeCommand(
         context,
-        'mesh/radar/cfg/set ${device.addressHex} $band 31 5 500 3000',
+        'mesh/radar/cfg/set ${device.addressHex} $band $cross 5 500 3000',
         stateKey: 'radar_quick_${device.address}',
       );
     }
