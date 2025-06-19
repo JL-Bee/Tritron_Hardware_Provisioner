@@ -41,6 +41,7 @@ class _BlocMainScreenState extends State<BlocMainScreen>
   final Map<String, CommandState> _commandStates = {};
   final Map<String, String> _commandResults = {};
   List<int> _lastSubscriptions = [];
+  final Map<int, bool> _overrideStates = {};
 
   @override
   void initState() {
@@ -743,6 +744,25 @@ class _BlocMainScreenState extends State<BlocMainScreen>
                             context.read<provisioner.ProvisionerBloc>().add(provisioner.SelectDevice(device));
                             _tabController.animateTo(1);
                           },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.highlight),
+                          tooltip: 'Identify',
+                          onPressed: () => _quickIdentify(context, device),
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            _overrideStates[device.address] ?? false
+                                ? Icons.lightbulb
+                                : Icons.lightbulb_outline,
+                          ),
+                          tooltip: 'Override',
+                          onPressed: () => _toggleOverride(context, device),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.radar),
+                          tooltip: 'Radar Sensitivity',
+                          onPressed: () => _showRadarSensitivityDialog(context, device),
                         ),
                         IconButton(
                           icon: const Icon(Icons.delete_outline),
@@ -1957,6 +1977,56 @@ class _BlocMainScreenState extends State<BlocMainScreen>
 
     if (result == true && mounted) {
       _executeCommand(context, 'mesh/radar/enable/set ${device.addressHex} ${enable ? 1 : 0} 3000');
+    }
+  }
+
+  void _quickIdentify(BuildContext context, MeshDevice device) {
+    _executeCommand(
+      context,
+      'mesh/dali_lc/identify/set ${device.addressHex} 3 3000',
+      stateKey: 'dali_identify_quick_${device.address}',
+    );
+  }
+
+  void _toggleOverride(BuildContext context, MeshDevice device) {
+    final isOn = _overrideStates[device.address] ?? false;
+    final arc = isOn ? 0 : 254;
+    final duration = isOn ? 0 : 65535;
+    _executeCommand(
+      context,
+      'mesh/dali_lc/override/set ${device.addressHex} $arc 0 $duration 3000',
+      stateKey: 'dali_override_toggle_${device.address}',
+    );
+    setState(() {
+      _overrideStates[device.address] = !isOn;
+    });
+  }
+
+  Future<void> _showRadarSensitivityDialog(
+      BuildContext context, MeshDevice device) async {
+    const presets = [10, 25, 50, 75, 100];
+    final selection = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: const Text('Radar Sensitivity'),
+        children: presets
+            .map(
+              (p) => SimpleDialogOption(
+                onPressed: () => Navigator.pop(dialogContext, p),
+                child: Text('$p%'),
+              ),
+            )
+            .toList(),
+      ),
+    );
+
+    if (selection != null && mounted) {
+      final band = (1650 * selection / 100).round();
+      _executeCommand(
+        context,
+        'mesh/radar/cfg/set ${device.addressHex} $band 31 5 500 3000',
+        stateKey: 'radar_quick_${device.address}',
+      );
     }
   }
 
