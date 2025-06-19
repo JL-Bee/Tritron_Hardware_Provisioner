@@ -36,6 +36,7 @@ A comprehensive Flutter application for provisioning and managing Bluetooth mesh
 - Display all subscribed groups in the device list with the node's own group in **bold** when multiple groups are present
 - Publish configuration
 - Health status monitoring
+- Automatic configuration of default idle and trigger settings after provisioning
 - Intuitive sliders for configuring idle, trigger, override and radar settings
 - Quick action buttons for identify, override toggle and radar sensitivity presets
 

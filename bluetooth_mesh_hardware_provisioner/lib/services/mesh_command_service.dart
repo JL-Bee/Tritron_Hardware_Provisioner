@@ -330,6 +330,22 @@ Future<List<MeshDevice>?> getProvisionedDevices() async {
     );
   }
 
+  /// Set the DALI LC idle configuration.
+  Future<bool> setDaliIdleConfig(
+      int address, int arc, FadeTime fade) async {
+    final result = await executeCommand(
+        'mesh/dali_lc/idle_cfg/set $address $arc ${fade.value} 3000');
+    return result.success;
+  }
+
+  /// Set the DALI LC trigger configuration.
+  Future<bool> setDaliTriggerConfig(
+      int address, int arc, FadeTime fadeIn, FadeTime fadeOut, int hold) async {
+    final result = await executeCommand(
+        'mesh/dali_lc/trigger_cfg/set $address $arc ${fadeIn.value} ${fadeOut.value} $hold 3000');
+    return result.success;
+  }
+
   /// Get the remaining DALI LC identify time in seconds.
   Future<int?> getDaliIdentifyTime(int address) async {
     final result =
