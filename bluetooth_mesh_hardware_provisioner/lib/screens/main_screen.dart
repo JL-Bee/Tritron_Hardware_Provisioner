@@ -41,7 +41,6 @@ class _BlocMainScreenState extends State<BlocMainScreen>
   final Map<String, CommandState> _commandStates = {};
   final Map<String, String> _commandResults = {};
   final Map<String, String> _pendingGets = {};
-  final Map<String, String> _pendingSetLabels = {};
   List<int> _lastSubscriptions = [];
   final Map<int, bool> _overrideStates = {};
 
