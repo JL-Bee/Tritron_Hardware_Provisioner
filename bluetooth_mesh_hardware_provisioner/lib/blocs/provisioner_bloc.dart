@@ -1210,6 +1210,19 @@ void _onProcessedLineReceived(_ProcessedLineReceived event, Emitter<ProvisionerS
     }
   }
 
+  /// Fetch the list of group subscriptions for [address].
+  ///
+  /// Returns an empty list if the provisioner is not connected or the
+  /// command fails.
+  Future<List<int>> fetchSubscriptions(int address) async {
+    if (_meshService == null) return [];
+    try {
+      return await _meshService!.getSubscriptions(address);
+    } catch (_) {
+      return [];
+    }
+  }
+
   @override
   Future<void> close() {
     _serialStatusSubscription?.cancel();
