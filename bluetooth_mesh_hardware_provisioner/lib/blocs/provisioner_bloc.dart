@@ -88,6 +88,9 @@ class ProvisionAll extends ProvisionerEvent {}
 
 class _ProcessNextProvision extends ProvisionerEvent {}
 
+// Internal event to process queued console commands
+class _ProcessNextConsoleCommand extends ProvisionerEvent {}
+
 // Internal event for processed lines
 class _ProcessedLineReceived extends ProvisionerEvent {
   final ProcessedLine line;
@@ -335,6 +338,18 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
   /// when discovered and removed as they are provisioned.
   final List<String> _provisionQueue = [];
 
+  /// Queue of raw console commands waiting to be sent.
+  final List<String> _consoleQueue = [];
+
+  /// Debounce timers per device address for console commands.
+  final Map<int, Timer> _consoleDebounce = {};
+
+  /// Last pending command per device address during debounce period.
+  final Map<int, String> _debouncedCommands = {};
+
+  /// Indicates whether a console command is currently executing.
+  bool _consoleBusy = false;
+
   ProvisionerBloc() : super(ProvisionerState()) {
     on<ConnectToPort>(_onConnectToPort);
     on<Disconnect>(_onDisconnect);
@@ -353,6 +368,7 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
     on<ToggleAutoProvision>(_onToggleAutoProvision);
     on<ProvisionAll>(_onProvisionAll);
     on<_ProcessNextProvision>(_onProcessNextProvision);
+    on<_ProcessNextConsoleCommand>(_onProcessNextConsoleCommand);
     on<_ProcessedLineReceived>(_onProcessedLineReceived);
     on<_PollProvisioningStatus>(_onPollProvisioningStatus);
     on<_FinalizeProvisioning>(_onFinalizeProvisioning);
@@ -898,7 +914,8 @@ class ProvisionerBloc extends Bloc<ProvisionerEvent, ProvisionerState> {
   void _onClearError(ClearError event, Emitter<ProvisionerState> emit) {
     emit(state.copyWith(clearError: true));
   }
-Future<void> _onSendConsoleCommand(SendConsoleCommand event, Emitter<ProvisionerState> emit) async {
+Future<void> _onSendConsoleCommand(
+    SendConsoleCommand event, Emitter<ProvisionerState> emit) async {
     if (_meshService == null) return;
 
     // Add command to console entries
@@ -916,25 +933,23 @@ Future<void> _onSendConsoleCommand(SendConsoleCommand event, Emitter<Provisioner
 
     emit(state.copyWith(consoleEntries: entries));
 
-    try {
-      // Send the command via mesh service
-      await _meshService!.sendCommand(event.command);
-    } catch (e) {
-      // Add error to console
-      final errorEntries = List<ConsoleEntry>.from(state.consoleEntries);
-      errorEntries.add(ConsoleEntry(
-        text: 'Error sending command: $e',
-        type: ConsoleEntryType.error,
-        timestamp: DateTime.now(),
-      ));
-
-      emit(state.copyWith(
-        consoleEntries: errorEntries,
-        currentError: AppError(
-          message: 'Failed to send command: $e',
-          severity: ErrorSeverity.error,
-        ),
-      ));
+    // Throttle commands per device. Extract the address if present.
+    final match = RegExp(r'0x([0-9a-fA-F]+)').firstMatch(event.command);
+    if (match != null) {
+      final addr = int.parse(match.group(1)!, radix: 16);
+      _debouncedCommands[addr] = event.command;
+      _consoleDebounce[addr]?.cancel();
+      _consoleDebounce[addr] = Timer(const Duration(milliseconds: 500), () {
+        final cmd = _debouncedCommands.remove(addr);
+        _consoleDebounce.remove(addr);
+        if (cmd != null) {
+          _consoleQueue.add(cmd);
+          add(_ProcessNextConsoleCommand());
+        }
+      });
+    } else {
+      _consoleQueue.add(event.command);
+      add(_ProcessNextConsoleCommand());
     }
   }
   void _onNodeDiscovered(NodeDiscovered event, Emitter<ProvisionerState> emit) {
@@ -1218,6 +1233,37 @@ void _onProcessedLineReceived(_ProcessedLineReceived event, Emitter<ProvisionerS
     if (_provisionQueue.contains(uuid)) return false;
     _provisionQueue.add(uuid);
     return true;
+  }
+
+  Future<void> _onProcessNextConsoleCommand(
+      _ProcessNextConsoleCommand event, Emitter<ProvisionerState> emit) async {
+    if (_consoleBusy || _consoleQueue.isEmpty || _meshService == null) return;
+
+    _consoleBusy = true;
+    final command = _consoleQueue.removeAt(0);
+    try {
+      await _meshService!.executeCommand(command);
+    } catch (e) {
+      final errorEntries = List<ConsoleEntry>.from(state.consoleEntries);
+      errorEntries.add(
+        ConsoleEntry(
+          text: 'Error sending command: $e',
+          type: ConsoleEntryType.error,
+          timestamp: DateTime.now(),
+        ),
+      );
+      emit(state.copyWith(
+        consoleEntries: errorEntries,
+        currentError: AppError(
+          message: 'Failed to send command: $e',
+          severity: ErrorSeverity.error,
+        ),
+      ));
+    }
+    _consoleBusy = false;
+    if (_consoleQueue.isNotEmpty) {
+      add(_ProcessNextConsoleCommand());
+    }
   }
 
   Future<void> _loadCachedDevices() async {
